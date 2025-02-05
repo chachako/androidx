@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+@file:RequiresApi(33)
+
 package androidx.camera.camera2.internal
 
 import android.hardware.camera2.params.DynamicRangeProfiles
@@ -23,41 +25,31 @@ import android.hardware.camera2.params.DynamicRangeProfiles.HDR10
 import android.hardware.camera2.params.DynamicRangeProfiles.HDR10_PLUS
 import android.hardware.camera2.params.DynamicRangeProfiles.HLG10
 import android.hardware.camera2.params.DynamicRangeProfiles.STANDARD
+import androidx.annotation.RequiresApi
 
-val HLG10_UNCONSTRAINED by lazy {
-    DynamicRangeProfiles(longArrayOf(HLG10, 0, 0))
-}
+val HLG10_UNCONSTRAINED by lazy { DynamicRangeProfiles(longArrayOf(HLG10, 0, 0)) }
 
-val HLG10_CONSTRAINED by lazy {
-    DynamicRangeProfiles(
-        longArrayOf(
-            HLG10, HLG10, LATENCY_NONE
-        )
-    )
-}
+val HLG10_CONSTRAINED by lazy { DynamicRangeProfiles(longArrayOf(HLG10, HLG10, LATENCY_NONE)) }
 
 val HLG10_SDR_CONSTRAINED by lazy {
-    DynamicRangeProfiles(
-        longArrayOf(
-            HLG10, HLG10 or STANDARD, LATENCY_NONE
-        )
-    )
+    DynamicRangeProfiles(longArrayOf(HLG10, HLG10 or STANDARD, LATENCY_NONE))
 }
 
 val HLG10_HDR10_CONSTRAINED by lazy {
     DynamicRangeProfiles(
-        longArrayOf(
-            HLG10, HLG10 or HDR10, LATENCY_NONE,
-            HDR10, HDR10 or HLG10, LATENCY_NONE
-        )
+        longArrayOf(HLG10, HLG10 or HDR10, LATENCY_NONE, HDR10, HDR10 or HLG10, LATENCY_NONE)
     )
 }
 
 val HDR10_UNCONSTRAINED by lazy {
     DynamicRangeProfiles(
         longArrayOf(
-            HLG10, CONSTRAINTS_NONE, LATENCY_NONE, // HLG is mandated
-            HDR10, CONSTRAINTS_NONE, LATENCY_NONE
+            HLG10,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE, // HLG is mandated
+            HDR10,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE
         )
     )
 }
@@ -65,8 +57,12 @@ val HDR10_UNCONSTRAINED by lazy {
 val HDR10_PLUS_UNCONSTRAINED by lazy {
     DynamicRangeProfiles(
         longArrayOf(
-            HLG10, CONSTRAINTS_NONE, LATENCY_NONE, // HLG is mandated
-            HDR10_PLUS, CONSTRAINTS_NONE, LATENCY_NONE
+            HLG10,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE, // HLG is mandated
+            HDR10_PLUS,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE
         )
     )
 }
@@ -74,9 +70,15 @@ val HDR10_PLUS_UNCONSTRAINED by lazy {
 val HDR10_HDR10_PLUS_UNCONSTRAINED by lazy {
     DynamicRangeProfiles(
         longArrayOf(
-            HLG10, CONSTRAINTS_NONE, LATENCY_NONE, // HLG is mandated
-            HDR10, CONSTRAINTS_NONE, LATENCY_NONE,
-            HDR10_PLUS, CONSTRAINTS_NONE, LATENCY_NONE
+            HLG10,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE, // HLG is mandated
+            HDR10,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE,
+            HDR10_PLUS,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE
         )
     )
 }
@@ -84,8 +86,12 @@ val HDR10_HDR10_PLUS_UNCONSTRAINED by lazy {
 val DOLBY_VISION_10B_UNCONSTRAINED by lazy {
     DynamicRangeProfiles(
         longArrayOf(
-            HLG10, CONSTRAINTS_NONE, LATENCY_NONE, // HLG is mandated
-            DOLBY_VISION_10B_HDR_OEM, CONSTRAINTS_NONE, LATENCY_NONE
+            HLG10,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE, // HLG is mandated
+            DOLBY_VISION_10B_HDR_OEM,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE
         )
     )
 }
@@ -93,33 +99,35 @@ val DOLBY_VISION_10B_UNCONSTRAINED by lazy {
 val DOLBY_VISION_10B_UNCONSTRAINED_SLOW by lazy {
     DynamicRangeProfiles(
         longArrayOf(
-            HLG10, CONSTRAINTS_NONE, LATENCY_NONE, // HLG is mandated
-            DOLBY_VISION_10B_HDR_OEM, CONSTRAINTS_NONE, LATENCY_NON_ZERO
+            HLG10,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE, // HLG is mandated
+            DOLBY_VISION_10B_HDR_OEM,
+            CONSTRAINTS_NONE,
+            LATENCY_NON_ZERO
         )
     )
 }
 
 val DOLBY_VISION_8B_UNCONSTRAINED by lazy {
-    DynamicRangeProfiles(
-        longArrayOf(
-            DOLBY_VISION_8B_HDR_OEM, CONSTRAINTS_NONE, LATENCY_NONE
-        )
-    )
+    DynamicRangeProfiles(longArrayOf(DOLBY_VISION_8B_HDR_OEM, CONSTRAINTS_NONE, LATENCY_NONE))
 }
 
 val DOLBY_VISION_8B_SDR_UNCONSTRAINED by lazy {
     DynamicRangeProfiles(
-        longArrayOf(
-            DOLBY_VISION_8B_HDR_OEM, DOLBY_VISION_8B_HDR_OEM or STANDARD, LATENCY_NONE
-        )
+        longArrayOf(DOLBY_VISION_8B_HDR_OEM, DOLBY_VISION_8B_HDR_OEM or STANDARD, LATENCY_NONE)
     )
 }
 
 val DOLBY_VISION_8B_UNCONSTRAINED_HLG10_UNCONSTRAINED by lazy {
     DynamicRangeProfiles(
         longArrayOf(
-            HLG10, CONSTRAINTS_NONE, LATENCY_NONE,
-            DOLBY_VISION_8B_HDR_OEM, CONSTRAINTS_NONE, LATENCY_NONE,
+            HLG10,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE,
+            DOLBY_VISION_8B_HDR_OEM,
+            CONSTRAINTS_NONE,
+            LATENCY_NONE,
         )
     )
 }
@@ -127,10 +135,14 @@ val DOLBY_VISION_8B_UNCONSTRAINED_HLG10_UNCONSTRAINED by lazy {
 val DOLBY_VISION_CONSTRAINED by lazy {
     DynamicRangeProfiles(
         longArrayOf(
-            HLG10, HLG10, LATENCY_NONE, // HLG is mandated
-            DOLBY_VISION_10B_HDR_OEM, DOLBY_VISION_10B_HDR_OEM or DOLBY_VISION_8B_HDR_OEM,
+            HLG10,
+            HLG10,
+            LATENCY_NONE, // HLG is mandated
+            DOLBY_VISION_10B_HDR_OEM,
+            DOLBY_VISION_10B_HDR_OEM or DOLBY_VISION_8B_HDR_OEM,
             LATENCY_NONE,
-            DOLBY_VISION_8B_HDR_OEM, DOLBY_VISION_8B_HDR_OEM or DOLBY_VISION_10B_HDR_OEM,
+            DOLBY_VISION_8B_HDR_OEM,
+            DOLBY_VISION_8B_HDR_OEM or DOLBY_VISION_10B_HDR_OEM,
             LATENCY_NONE
         )
     )

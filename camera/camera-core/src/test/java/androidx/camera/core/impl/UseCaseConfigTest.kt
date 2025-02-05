@@ -17,7 +17,7 @@ package androidx.camera.core.impl
 
 import android.os.Build
 import android.util.Range
-import androidx.camera.testing.fakes.FakeUseCaseConfig
+import androidx.camera.testing.impl.fakes.FakeUseCaseConfig
 import com.google.common.truth.Truth
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,9 +26,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.internal.DoNotInstrument
 
 @Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
-@RunWith(
-    RobolectricTestRunner::class
-)
+@RunWith(RobolectricTestRunner::class)
 @DoNotInstrument
 class UseCaseConfigTest {
     @Test

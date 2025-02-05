@@ -16,6 +16,7 @@
 
 package androidx.constraintlayout.compose
 
+import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Velocity
@@ -24,36 +25,44 @@ import androidx.compose.ui.unit.Velocity
  * Helper class that handles the interactions between Compose and
  * [androidx.constraintlayout.core.state.Transition].
  */
+@ExperimentalMotionApi
 internal class TransitionHandler(
     private val motionMeasurer: MotionMeasurer,
-    private val motionProgress: MotionProgress
+    private val motionProgress: MutableFloatState
 ) {
     private val transition: androidx.constraintlayout.core.state.Transition
         get() = motionMeasurer.transition
 
     /**
-     * The [motionProgress] is updated based on the [Offset] from a single drag event.
+     * Whether we consume the rest of the drag for OnSwipe.
+     *
+     * @see androidx.constraintlayout.core.state.Transition.isFirstDownAccepted
      */
+    fun onAcceptFirstDownForOnSwipe(offset: Offset) =
+        transition.isFirstDownAccepted(offset.x, offset.y)
+
+    /** The [motionProgress] is updated based on the [Offset] from a single drag event. */
     fun updateProgressOnDrag(dragAmount: Offset) {
-        val progressDelta = transition.dragToProgress(
-            motionProgress.currentProgress,
-            motionMeasurer.layoutCurrentWidth,
-            motionMeasurer.layoutCurrentHeight,
-            dragAmount.x,
-            dragAmount.y
-        )
-        var newProgress = motionProgress.currentProgress + progressDelta
+        val progressDelta =
+            transition.dragToProgress(
+                motionProgress.floatValue,
+                motionMeasurer.layoutCurrentWidth,
+                motionMeasurer.layoutCurrentHeight,
+                dragAmount.x,
+                dragAmount.y
+            )
+        var newProgress = motionProgress.floatValue + progressDelta
         newProgress = newProgress.coerceIn(0f, 1f)
-        motionProgress.updateProgress(newProgress)
+        motionProgress.floatValue = newProgress
     }
 
     /**
      * Called when a swipe event ends, sets up the underlying Transition with the [velocity] of the
-     * swipe at the next frame..
+     * swipe at the next frame.
      */
     suspend fun onTouchUp(velocity: Velocity) {
         withFrameNanos { timeNanos ->
-            transition.setTouchUp(motionProgress.currentProgress, timeNanos, velocity.x, velocity.y)
+            transition.setTouchUp(motionProgress.floatValue, timeNanos, velocity.x, velocity.y)
         }
     }
 
@@ -62,16 +71,14 @@ internal class TransitionHandler(
      * touch gestures.
      */
     suspend fun updateProgressWhileTouchUp() {
-        val newProgress = withFrameNanos { timeNanos ->
-            transition.getTouchUpProgress(timeNanos)
-        }
-        motionProgress.updateProgress(newProgress)
+        val newProgress = withFrameNanos { timeNanos -> transition.getTouchUpProgress(timeNanos) }
+        motionProgress.floatValue = newProgress
     }
 
     /**
      * Returns true if the progress is still expected to be updated by [updateProgressWhileTouchUp].
      */
     fun pendingProgressWhileTouchUp(): Boolean {
-        return transition.isTouchNotDone(motionProgress.currentProgress)
+        return transition.isTouchNotDone(motionProgress.floatValue)
     }
 }

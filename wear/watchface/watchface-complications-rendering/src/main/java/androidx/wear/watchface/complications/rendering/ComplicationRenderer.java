@@ -22,7 +22,6 @@ import static java.lang.Math.cos;
 import static java.lang.Math.sin;
 import static java.lang.Math.toRadians;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -48,8 +47,6 @@ import android.support.wearable.complications.ComplicationText;
 import android.text.Layout;
 import android.text.TextPaint;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.wear.watchface.complications.data.ImageKt;
@@ -62,6 +59,9 @@ import androidx.wear.watchface.complications.rendering.utils.LongTextLayoutHelpe
 import androidx.wear.watchface.complications.rendering.utils.RangedValueLayoutHelper;
 import androidx.wear.watchface.complications.rendering.utils.ShortTextLayoutHelper;
 import androidx.wear.watchface.complications.rendering.utils.SmallImageLayoutHelper;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
 import java.util.Objects;
@@ -209,16 +209,16 @@ class ComplicationRenderer {
     PaintSet mAmbientPaintSetLostTapAction = null;
 
     // Paints for texts
-    @Nullable private TextPaint mMainTextPaint = null;
-    @Nullable private TextPaint mSubTextPaint = null;
+    private @Nullable TextPaint mMainTextPaint = null;
+    private @Nullable TextPaint mSubTextPaint = null;
 
     // Styles for active and ambient modes.
     private ComplicationStyle mActiveStyle;
     private ComplicationStyle mAmbientStyle;
 
-    @Nullable private Paint mDebugPaint;
+    private @Nullable Paint mDebugPaint;
 
-    @Nullable private OnInvalidateListener mInvalidateListener;
+    private @Nullable OnInvalidateListener mInvalidateListener;
 
     /**
      * Initializes complication renderer.
@@ -1147,7 +1147,6 @@ class ComplicationRenderer {
                     mContext,
                     new OnDrawableLoadedListener() {
                         @Override
-                        @SuppressLint("SyntheticAccessor")
                         public void onDrawableLoaded(Drawable d) {
                             if (d == null) {
                                 return;
@@ -1166,7 +1165,6 @@ class ComplicationRenderer {
                     mContext,
                     new OnDrawableLoadedListener() {
                         @Override
-                        @SuppressLint("SyntheticAccessor")
                         public void onDrawableLoaded(Drawable d) {
                             if (d == null) {
                                 return;
@@ -1185,7 +1183,6 @@ class ComplicationRenderer {
                     mContext,
                     new OnDrawableLoadedListener() {
                         @Override
-                        @SuppressLint("SyntheticAccessor")
                         public void onDrawableLoaded(Drawable d) {
                             if (d == null) {
                                 return;
@@ -1204,7 +1201,6 @@ class ComplicationRenderer {
                     mContext,
                     new OnDrawableLoadedListener() {
                         @Override
-                        @SuppressLint("SyntheticAccessor")
                         public void onDrawableLoaded(Drawable d) {
                             if (d == null) {
                                 return;
@@ -1222,7 +1218,6 @@ class ComplicationRenderer {
                     mContext,
                     new OnDrawableLoadedListener() {
                         @Override
-                        @SuppressLint("SyntheticAccessor")
                         public void onDrawableLoaded(Drawable d) {
                             if (d == null) {
                                 return;
@@ -1326,7 +1321,6 @@ class ComplicationRenderer {
         /** Icon tint color filter */
         final ColorFilter mIconColorFilter;
 
-        @SuppressLint("SyntheticAccessor")
         PaintSet(
                 ComplicationStyle style,
                 boolean isAmbientStyle,
@@ -1420,57 +1414,48 @@ class ComplicationRenderer {
         }
     }
 
-    @NonNull
     @VisibleForTesting
-    public Rect getBounds() {
+    public @NonNull Rect getBounds() {
         return mBounds;
     }
 
-    @NonNull
     @VisibleForTesting
-    public Rect getIconBounds() {
+    public @NonNull Rect getIconBounds() {
         return mIconBounds;
     }
 
-    @Nullable
     @VisibleForTesting
-    public Drawable getIcon() {
+    public @Nullable Drawable getIcon() {
         return mIcon;
     }
 
-    @Nullable
     @VisibleForTesting
-    public Drawable getSmallImage() {
+    public @Nullable Drawable getSmallImage() {
         return mSmallImage;
     }
 
-    @Nullable
     @VisibleForTesting
-    public Drawable getBurnInProtectionIcon() {
+    public @Nullable Drawable getBurnInProtectionIcon() {
         return mBurnInProtectionIcon;
     }
 
-    @Nullable
     @VisibleForTesting
-    public Drawable getBurnInProtectionSmallImage() {
+    public @Nullable Drawable getBurnInProtectionSmallImage() {
         return mBurnInProtectionSmallImage;
     }
 
-    @Nullable
     @VisibleForTesting
-    public RoundedDrawable getRoundedSmallImage() {
+    public @Nullable RoundedDrawable getRoundedSmallImage() {
         return mRoundedSmallImage;
     }
 
-    @NonNull
     @VisibleForTesting
-    public Rect getMainTextBounds() {
+    public @NonNull Rect getMainTextBounds() {
         return mMainTextBounds;
     }
 
-    @NonNull
     @VisibleForTesting
-    public Rect getSubTextBounds() {
+    public @NonNull Rect getSubTextBounds() {
         return mSubTextBounds;
     }
 
@@ -1510,8 +1495,8 @@ class ComplicationRenderer {
      * restricted to black, white or transparent. All text and icon colors in the returned style
      * will be set to white.
      */
-    @NonNull
-    private static ComplicationStyle lowBitAmbientStyleFrom(@NonNull ComplicationStyle style) {
+    private static @NonNull ComplicationStyle lowBitAmbientStyleFrom(
+            @NonNull ComplicationStyle style) {
         ComplicationStyle newStyle = new ComplicationStyle(style);
         if (style.getBackgroundColor() != Color.BLACK) {
             newStyle.setBackgroundColor(Color.TRANSPARENT);

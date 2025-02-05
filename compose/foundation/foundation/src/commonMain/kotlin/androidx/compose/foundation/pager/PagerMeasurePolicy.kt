@@ -19,6 +19,7 @@ package androidx.compose.foundation.pager
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.checkScrollableContainerConstraints
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -35,155 +36,187 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.offset
-import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun rememberPagerMeasurePolicy(
-    itemProvider: PagerLazyLayoutItemProvider,
+    itemProviderLambda: () -> PagerLazyLayoutItemProvider,
     state: PagerState,
     contentPadding: PaddingValues,
     reverseLayout: Boolean,
     orientation: Orientation,
-    beyondBoundsPageCount: Int,
+    beyondViewportPageCount: Int,
     pageSpacing: Dp,
     pageSize: PageSize,
     horizontalAlignment: Alignment.Horizontal?,
     verticalAlignment: Alignment.Vertical?,
+    snapPosition: SnapPosition,
+    coroutineScope: CoroutineScope,
     pageCount: () -> Int,
-) = remember<LazyLayoutMeasureScope.(Constraints) -> MeasureResult>(
-    contentPadding,
-    pageSpacing,
-    pageSize,
-    state,
-    contentPadding,
-    reverseLayout,
-    orientation,
-    horizontalAlignment,
-    verticalAlignment,
-    pageCount,
-) {
-    { containerConstraints ->
-        val isVertical = orientation == Orientation.Vertical
-        checkScrollableContainerConstraints(
-            containerConstraints,
-            if (isVertical) Orientation.Vertical else Orientation.Horizontal
-        )
-
-        // resolve content paddings
-        val startPadding =
-            if (isVertical) {
-                contentPadding.calculateLeftPadding(layoutDirection).roundToPx()
-            } else {
-                // in horizontal configuration, padding is reversed by placeRelative
-                contentPadding.calculateStartPadding(layoutDirection).roundToPx()
-            }
-
-        val endPadding =
-            if (isVertical) {
-                contentPadding.calculateRightPadding(layoutDirection).roundToPx()
-            } else {
-                // in horizontal configuration, padding is reversed by placeRelative
-                contentPadding.calculateEndPadding(layoutDirection).roundToPx()
-            }
-        val topPadding = contentPadding.calculateTopPadding().roundToPx()
-        val bottomPadding = contentPadding.calculateBottomPadding().roundToPx()
-        val totalVerticalPadding = topPadding + bottomPadding
-        val totalHorizontalPadding = startPadding + endPadding
-        val totalMainAxisPadding = if (isVertical) totalVerticalPadding else totalHorizontalPadding
-        val beforeContentPadding = when {
-            isVertical && !reverseLayout -> topPadding
-            isVertical && reverseLayout -> bottomPadding
-            !isVertical && !reverseLayout -> startPadding
-            else -> endPadding // !isVertical && reverseLayout
-        }
-        val afterContentPadding = totalMainAxisPadding - beforeContentPadding
-        val contentConstraints =
-            containerConstraints.offset(-totalHorizontalPadding, -totalVerticalPadding)
-
-        state.density = this
-
-        val spaceBetweenPages = pageSpacing.roundToPx()
-
-        // can be negative if the content padding is larger than the max size from constraints
-        val mainAxisAvailableSize = if (isVertical) {
-            containerConstraints.maxHeight - totalVerticalPadding
-        } else {
-            containerConstraints.maxWidth - totalHorizontalPadding
-        }
-        val visualItemOffset = if (!reverseLayout || mainAxisAvailableSize > 0) {
-            IntOffset(startPadding, topPadding)
-        } else {
-            // When layout is reversed and paddings together take >100% of the available space,
-            // layout size is coerced to 0 when positioning. To take that space into account,
-            // we offset start padding by negative space between paddings.
-            IntOffset(
-                if (isVertical) startPadding else startPadding + mainAxisAvailableSize,
-                if (isVertical) topPadding + mainAxisAvailableSize else topPadding
+) =
+    remember<LazyLayoutMeasureScope.(Constraints) -> MeasureResult>(
+        state,
+        contentPadding,
+        reverseLayout,
+        orientation,
+        horizontalAlignment,
+        verticalAlignment,
+        pageSpacing,
+        pageSize,
+        snapPosition,
+        pageCount,
+        beyondViewportPageCount,
+        coroutineScope
+    ) {
+        { containerConstraints ->
+            state.measurementScopeInvalidator.attachToScope()
+            val isVertical = orientation == Orientation.Vertical
+            checkScrollableContainerConstraints(
+                containerConstraints,
+                if (isVertical) Orientation.Vertical else Orientation.Horizontal
             )
-        }
 
-        val pageAvailableSize =
-            with(pageSize) { calculateMainAxisPageSize(mainAxisAvailableSize, spaceBetweenPages) }
+            // resolve content paddings
+            val startPadding =
+                if (isVertical) {
+                    contentPadding.calculateLeftPadding(layoutDirection).roundToPx()
+                } else {
+                    // in horizontal configuration, padding is reversed by placeRelative
+                    contentPadding.calculateStartPadding(layoutDirection).roundToPx()
+                }
 
-        state.premeasureConstraints = Constraints(
-            maxWidth = if (orientation == Orientation.Vertical) {
-                contentConstraints.maxWidth
-            } else {
-                pageAvailableSize
-            },
-            maxHeight = if (orientation != Orientation.Vertical) {
-                contentConstraints.maxHeight
-            } else {
-                pageAvailableSize
-            }
-        )
+            val endPadding =
+                if (isVertical) {
+                    contentPadding.calculateRightPadding(layoutDirection).roundToPx()
+                } else {
+                    // in horizontal configuration, padding is reversed by placeRelative
+                    contentPadding.calculateEndPadding(layoutDirection).roundToPx()
+                }
+            val topPadding = contentPadding.calculateTopPadding().roundToPx()
+            val bottomPadding = contentPadding.calculateBottomPadding().roundToPx()
+            val totalVerticalPadding = topPadding + bottomPadding
+            val totalHorizontalPadding = startPadding + endPadding
+            val totalMainAxisPadding =
+                if (isVertical) totalVerticalPadding else totalHorizontalPadding
+            val beforeContentPadding =
+                when {
+                    isVertical && !reverseLayout -> topPadding
+                    isVertical && reverseLayout -> bottomPadding
+                    !isVertical && !reverseLayout -> startPadding
+                    else -> endPadding // !isVertical && reverseLayout
+                }
+            val afterContentPadding = totalMainAxisPadding - beforeContentPadding
+            val contentConstraints =
+                containerConstraints.offset(-totalHorizontalPadding, -totalVerticalPadding)
 
-        val firstVisiblePage: Int
-        val firstVisiblePageOffset: Int
-        Snapshot.withoutReadObservation {
-            firstVisiblePage = state.firstVisiblePage
-            firstVisiblePageOffset = if (state.layoutInfo == EmptyLayoutInfo) {
-                (state.initialPageOffsetFraction * pageAvailableSize).roundToInt()
-            } else {
-                state.firstVisiblePageOffset
-            }
-        }
+            state.density = this
 
-        val pinnedPages = itemProvider.calculateLazyLayoutPinnedIndices(
-            pinnedItemList = state.pinnedPages,
-            beyondBoundsInfo = state.beyondBoundsInfo
-        )
+            val spaceBetweenPages = pageSpacing.roundToPx()
 
-        measurePager(
-            beforeContentPadding = beforeContentPadding,
-            afterContentPadding = afterContentPadding,
-            constraints = contentConstraints,
-            pageCount = pageCount(),
-            spaceBetweenPages = spaceBetweenPages,
-            mainAxisAvailableSize = mainAxisAvailableSize,
-            visualPageOffset = visualItemOffset,
-            pageAvailableSize = pageAvailableSize,
-            beyondBoundsPageCount = beyondBoundsPageCount,
-            orientation = orientation,
-            firstVisiblePage = firstVisiblePage,
-            firstVisiblePageOffset = firstVisiblePageOffset,
-            horizontalAlignment = horizontalAlignment,
-            verticalAlignment = verticalAlignment,
-            pagerItemProvider = itemProvider,
-            reverseLayout = reverseLayout,
-            scrollToBeConsumed = state.scrollToBeConsumed,
-            pinnedPages = pinnedPages,
-            layout = { width, height, placement ->
-                layout(
-                    containerConstraints.constrainWidth(width + totalHorizontalPadding),
-                    containerConstraints.constrainHeight(height + totalVerticalPadding),
-                    emptyMap(),
-                    placement
+            // can be negative if the content padding is larger than the max size from constraints
+            val mainAxisAvailableSize =
+                if (isVertical) {
+                    containerConstraints.maxHeight - totalVerticalPadding
+                } else {
+                    containerConstraints.maxWidth - totalHorizontalPadding
+                }
+            val visualItemOffset =
+                if (!reverseLayout || mainAxisAvailableSize > 0) {
+                    IntOffset(startPadding, topPadding)
+                } else {
+                    // When layout is reversed and paddings together take >100% of the available
+                    // space,
+                    // layout size is coerced to 0 when positioning. To take that space into
+                    // account,
+                    // we offset start padding by negative space between paddings.
+                    IntOffset(
+                        if (isVertical) startPadding else startPadding + mainAxisAvailableSize,
+                        if (isVertical) topPadding + mainAxisAvailableSize else topPadding
+                    )
+                }
+
+            val pageAvailableSize =
+                with(pageSize) {
+                    calculateMainAxisPageSize(mainAxisAvailableSize, spaceBetweenPages)
+                        .coerceAtLeast(0)
+                }
+
+            state.premeasureConstraints =
+                Constraints(
+                    maxWidth =
+                        if (orientation == Orientation.Vertical) {
+                            contentConstraints.maxWidth
+                        } else {
+                            pageAvailableSize
+                        },
+                    maxHeight =
+                        if (orientation != Orientation.Vertical) {
+                            contentConstraints.maxHeight
+                        } else {
+                            pageAvailableSize
+                        }
                 )
+            val itemProvider = itemProviderLambda()
+
+            val currentPage: Int
+            val currentPageOffset: Int
+            val layoutSize = mainAxisAvailableSize + beforeContentPadding + afterContentPadding
+
+            Snapshot.withoutReadObservation {
+                currentPage = state.matchScrollPositionWithKey(itemProvider, state.currentPage)
+                currentPageOffset =
+                    snapPosition.currentPageOffset(
+                        layoutSize,
+                        pageAvailableSize,
+                        spaceBetweenPages,
+                        beforeContentPadding,
+                        afterContentPadding,
+                        state.currentPage,
+                        state.currentPageOffsetFraction,
+                        state.pageCount
+                    )
             }
-        ).also {
-            state.applyMeasureResult(it)
+
+            val pinnedPages =
+                itemProvider.calculateLazyLayoutPinnedIndices(
+                    pinnedItemList = state.pinnedPages,
+                    beyondBoundsInfo = state.beyondBoundsInfo
+                )
+
+            // todo: wrap with snapshot when b/341782245 is resolved
+            val measureResult =
+                measurePager(
+                    beforeContentPadding = beforeContentPadding,
+                    afterContentPadding = afterContentPadding,
+                    constraints = contentConstraints,
+                    pageCount = pageCount(),
+                    spaceBetweenPages = spaceBetweenPages,
+                    mainAxisAvailableSize = mainAxisAvailableSize,
+                    visualPageOffset = visualItemOffset,
+                    pageAvailableSize = pageAvailableSize,
+                    beyondViewportPageCount = beyondViewportPageCount,
+                    orientation = orientation,
+                    currentPage = currentPage,
+                    currentPageOffset = currentPageOffset,
+                    horizontalAlignment = horizontalAlignment,
+                    verticalAlignment = verticalAlignment,
+                    pagerItemProvider = itemProvider,
+                    reverseLayout = reverseLayout,
+                    pinnedPages = pinnedPages,
+                    snapPosition = snapPosition,
+                    placementScopeInvalidator = state.placementScopeInvalidator,
+                    coroutineScope = coroutineScope,
+                    layout = { width, height, placement ->
+                        layout(
+                            containerConstraints.constrainWidth(width + totalHorizontalPadding),
+                            containerConstraints.constrainHeight(height + totalVerticalPadding),
+                            emptyMap(),
+                            placement
+                        )
+                    }
+                )
+            state.applyMeasureResult(measureResult, isLookingAhead = isLookingAhead)
+            measureResult
         }
     }
-}

@@ -44,7 +44,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.internal.bytecode.InstrumentationConfiguration
 
 internal class TestWatchFaceService(
-    @WatchFaceType private val watchFaceType: Int,
+    @WatchFaceTypeIntDef private val watchFaceType: Int,
     private val complicationSlots: List<ComplicationSlot>,
     private val rendererFactory:
         suspend (
@@ -66,7 +66,8 @@ internal class TestWatchFaceService(
             override fun setInteractivePriority() {}
         },
     private val complicationCache: MutableMap<String, ByteArray>? = null,
-    private val forceIsVisible: Boolean = false
+    private val forceIsVisible: Boolean = false,
+    private val requestUpdateScreenshotOnConfigurationChange: Boolean = false
 ) : WatchFaceService() {
     /** The ids of the [ComplicationSlot]s that have been tapped. */
     val tappedComplicationSlotIds: List<Int>
@@ -133,6 +134,9 @@ internal class TestWatchFaceService(
         renderer = rendererFactory(surfaceHolder, currentUserStyleRepository, watchState)
         val watchFace = WatchFace(watchFaceType, renderer!!)
         tapListener?.let { watchFace.setTapListener(it) }
+        watchFace.setUpdateScreenshotOnConfigurationChange(
+            requestUpdateScreenshotOnConfigurationChange
+        )
         return watchFace
     }
 

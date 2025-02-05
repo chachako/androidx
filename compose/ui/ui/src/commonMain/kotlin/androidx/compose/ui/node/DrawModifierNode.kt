@@ -29,21 +29,12 @@ import androidx.compose.ui.graphics.drawscope.ContentDrawScope
  */
 interface DrawModifierNode : DelegatableNode {
     fun ContentDrawScope.draw()
+
     fun onMeasureResultChanged() {}
 }
 
 /**
- * Expands on the [androidx.compose.ui.node.DrawModifierNode] by adding the ability to invalidate
- * the draw cache for changes in things like shapes and bitmaps (see Modifier.border for a usage
- * examples).
- */
-interface CacheDrawModifierNode : DrawModifierNode {
-    fun invalidateDrawCache()
-}
-
-/**
- * Invalidates this modifier's draw layer, ensuring that a draw pass will
- * be run on the next frame.
+ * Invalidates this modifier's draw layer, ensuring that a draw pass will be run on the next frame.
  */
 fun DrawModifierNode.invalidateDraw() {
     if (node.isAttached) {

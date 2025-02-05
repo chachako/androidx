@@ -18,10 +18,12 @@ package androidx.core.content.res;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.FloatRange;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
+import androidx.annotation.Size;
 import androidx.core.graphics.ColorUtils;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A color appearance model, based on CAM16, extended to use L* as the lightness dimension, and
@@ -157,8 +159,7 @@ public class CamColor {
      *
      * The alpha component is ignored, CamColor only represents opaque colors.
      */
-    @NonNull
-    static CamColor fromColor(@ColorInt int color) {
+    static @NonNull CamColor fromColor(@ColorInt int color) {
         float[] outCamColor = new float[7];
         float[] outM3HCT = new float[3];
         fromColorInViewingConditions(color, ViewingConditions.DEFAULT, outCamColor, outM3HCT);
@@ -169,6 +170,10 @@ public class CamColor {
     /**
      *
      * Get the values for M3HCT color from ARGB color.
+     *
+     * HCT color space is a new color space proposed in Material Design 3
+     * @see
+     * <a href="https://developer.android.com/design/ui/mobile/guides/styles/color#about-color-spaces">About Color Spaces</a>
      *
      *<ul>
      *<li>outM3HCT[0] is Hue in M3HCT [0, 360); invalid values are corrected.</li>
@@ -182,7 +187,7 @@ public class CamColor {
      *      Chroma, Tone).
      */
     public static void getM3HCTfromColor(@ColorInt int color,
-            @NonNull float[] outM3HCT) {
+            @Size(3) float @NonNull [] outM3HCT) {
         fromColorInViewingConditions(color, ViewingConditions.DEFAULT, null, outM3HCT);
         outM3HCT[2] = CamUtils.lStarFromInt(color);
     }
@@ -192,8 +197,8 @@ public class CamColor {
      * ViewingConditions in which the color was viewed. Prefer Cam.fromColor.
      */
     static void fromColorInViewingConditions(@ColorInt int color,
-            @NonNull ViewingConditions viewingConditions, @Nullable float[] outCamColor,
-            @NonNull float[] outM3HCT) {
+            @NonNull ViewingConditions viewingConditions, @Size(7) float @Nullable [] outCamColor,
+            @Size(3) float @NonNull [] outM3HCT) {
         // Transform ARGB int to XYZ, reusing outM3HCT array to avoid a new allocation.
         CamUtils.xyzFromInt(color, outM3HCT);
         float[] xyz = outM3HCT;
@@ -286,8 +291,7 @@ public class CamColor {
      * Create a CAM from lightness, chroma, and hue coordinates. It is assumed those coordinates
      * were measured in the default ViewingConditions.
      */
-    @NonNull
-    private static CamColor fromJch(@FloatRange(from = 0.0, to = 100.0) float j,
+    private static @NonNull CamColor fromJch(@FloatRange(from = 0.0, to = 100.0) float j,
             @FloatRange(from = 0.0, to = Double.POSITIVE_INFINITY, toInclusive = false) float c,
             @FloatRange(from = 0.0, to = 360.0) float h) {
         return fromJchInFrame(j, c, h, ViewingConditions.DEFAULT);
@@ -297,8 +301,7 @@ public class CamColor {
      * Create a CAM from lightness, chroma, and hue coordinates, and also specify the
      * ViewingConditions where the color was seen.
      */
-    @NonNull
-    private static CamColor fromJchInFrame(@FloatRange(from = 0.0, to = 100.0) float j,
+    private static @NonNull CamColor fromJchInFrame(@FloatRange(from = 0.0, to = 100.0) float j,
             @FloatRange(from = 0.0, to = Double.POSITIVE_INFINITY, toInclusive = false) float c,
             @FloatRange(from = 0.0, to = 360.0) float h, ViewingConditions viewingConditions) {
         float q =
@@ -515,8 +518,7 @@ public class CamColor {
     // color space.
     //
     // Returns null if no J could be found that generated a color with L* `lstar`.
-    @Nullable
-    private static CamColor findCamByJ(@FloatRange(from = 0.0, to = 360.0) float hue,
+    private static @Nullable CamColor findCamByJ(@FloatRange(from = 0.0, to = 360.0) float hue,
             @FloatRange(from = 0.0, to = Double.POSITIVE_INFINITY, toInclusive = false)
                     float chroma,
             @FloatRange(from = 0.0, to = 100.0) float lstar) {

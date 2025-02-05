@@ -16,6 +16,9 @@
 
 package androidx.health.connect.client.records
 
+import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.records.metadata.Metadata.Companion.RECORDING_METHOD_MANUAL_ENTRY
+import androidx.health.connect.client.records.metadata.Metadata.Companion.RECORDING_METHOD_UNKNOWN
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import java.time.Instant
@@ -28,15 +31,33 @@ class IntermenstrualBleedingRecordTest {
     @Test
     fun validRecord_equals() {
         assertThat(
-            IntermenstrualBleedingRecord(
-                time = Instant.ofEpochMilli(1234L),
-                zoneOffset = null,
+                IntermenstrualBleedingRecord(
+                    time = Instant.ofEpochMilli(1234L),
+                    zoneOffset = null,
+                    metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
+                )
             )
-        ).isEqualTo(
-            IntermenstrualBleedingRecord(
-                time = Instant.ofEpochMilli(1234L),
-                zoneOffset = null,
+            .isEqualTo(
+                IntermenstrualBleedingRecord(
+                    time = Instant.ofEpochMilli(1234L),
+                    zoneOffset = null,
+                    metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
+                )
             )
-        )
+    }
+
+    @Test
+    fun toString_containsMembers() {
+        assertThat(
+                IntermenstrualBleedingRecord(
+                        time = Instant.ofEpochMilli(1234L),
+                        zoneOffset = null,
+                        metadata = Metadata(recordingMethod = RECORDING_METHOD_UNKNOWN),
+                    )
+                    .toString()
+            )
+            .isEqualTo(
+                "IntermenstrualBleedingRecord(time=1970-01-01T00:00:01.234Z, zoneOffset=null, metadata=Metadata(id='', dataOrigin=DataOrigin(packageName=''), lastModifiedTime=1970-01-01T00:00:00Z, clientRecordId=null, clientRecordVersion=0, device=null, recordingMethod=0))"
+            )
     }
 }

@@ -16,27 +16,34 @@
 
 package androidx.wear.protolayout.expression.pipeline;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.UiThread;
-import androidx.wear.protolayout.expression.proto.StateEntryProto.StateEntryValue;
+import androidx.wear.protolayout.expression.AppDataKey;
+import androidx.wear.protolayout.expression.DynamicBuilders.DynamicType;
+import androidx.wear.protolayout.expression.DynamicDataKey;
+import androidx.wear.protolayout.expression.PlatformDataKey;
+import androidx.wear.protolayout.expression.proto.DynamicDataProto.DynamicDataValue;
+
+import org.jspecify.annotations.NonNull;
 
 import java.util.function.Function;
 
 class StateSourceNode<T>
         implements DynamicDataSourceNode<T>,
-        DynamicTypeValueReceiverWithPreUpdate<StateEntryValue> {
-    private final StateStore mStateStore;
-    private final String mBindKey;
-    private final Function<StateEntryValue, T> mStateExtractor;
+                DynamicTypeValueReceiverWithPreUpdate<DynamicDataValue> {
+    private static final @NonNull String RESERVED_NAMESPACE = "protolayout";
+    private final DataStore mDataStore;
+    private final DynamicDataKey<?> mKey;
+    private final Function<DynamicDataValue, T> mStateExtractor;
     private final DynamicTypeValueReceiverWithPreUpdate<T> mDownstream;
+    private volatile boolean mInitialDataSent = false;
 
     StateSourceNode(
-            StateStore stateStore,
-            String bindKey,
-            Function<StateEntryValue, T> stateExtractor,
+            DataStore dataStore,
+            DynamicDataKey<?> key,
+            Function<DynamicDataValue, T> stateExtractor,
             DynamicTypeValueReceiverWithPreUpdate<T> downstream) {
-        this.mStateStore = stateStore;
-        this.mBindKey = bindKey;
+        this.mDataStore = dataStore;
+        this.mKey = key;
         this.mStateExtractor = stateExtractor;
         this.mDownstream = downstream;
     }
@@ -50,8 +57,16 @@ class StateSourceNode<T>
     @Override
     @UiThread
     public void init() {
-        mStateStore.registerCallback(mBindKey, this);
-        StateEntryValue item = mStateStore.getStateEntryValuesProto(mBindKey);
+        mDataStore.registerCallback(mKey, this);
+        if (mInitialDataSent) {
+            // During the registration line above, a provider can push a new data causing the
+            // onData/onInvalidated to be called. This method runs on Ui thread and the
+            // PlatformDataStore uses a MainThreadExecutor, so we don't need additional
+            // synchronization for avoiding double data delivery.
+            return;
+        }
+
+        DynamicDataValue item = mDataStore.getDynamicDataValuesProto(mKey);
 
         if (item != null) {
             this.onData(item);
@@ -63,22 +78,53 @@ class StateSourceNode<T>
     @Override
     @UiThread
     public void destroy() {
-        mStateStore.unregisterCallback(mBindKey, this);
+        mDataStore.unregisterCallback(mKey, this);
     }
 
     @Override
     public void onPreUpdate() {
+        if (!mInitialDataSent) {
+            // Some PlatformDataProviders push a new data as soon as they are registered with
+            // PlatformDataStore in {@link #init()}. This means we might end up calling onPreUpdate
+            // twice. The only preUpdate before the first data should be trigged by {@link
+            // #preInit()}
+            return;
+        }
         mDownstream.onPreUpdate();
     }
 
     @Override
-    public void onData(@NonNull StateEntryValue newData) {
+    public void onData(@NonNull DynamicDataValue newData) {
         T actualValue = mStateExtractor.apply(newData);
-        mDownstream.onData(actualValue);
+        if (actualValue == null) {
+            this.onInvalidated();
+        } else {
+            mDownstream.onData(actualValue);
+        }
+        mInitialDataSent = true;
     }
 
     @Override
     public void onInvalidated() {
         mDownstream.onInvalidated();
+        mInitialDataSent = true;
+    }
+
+    static <T extends DynamicType> @NonNull DynamicDataKey<T> createKey(
+            @NonNull String namespace, @NonNull String key) {
+        if (namespace.isEmpty()) {
+            return new AppDataKey<T>(key);
+        }
+
+        if (RESERVED_NAMESPACE.equalsIgnoreCase(namespace)) {
+            return new PlatformDataKey<T>(key);
+        }
+
+        return new PlatformDataKey<T>(namespace, key);
+    }
+
+    @Override
+    public int getCost() {
+        return DEFAULT_NODE_COST;
     }
 }

@@ -16,16 +16,17 @@
 
 package androidx.work.impl.background.greedy;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.RestrictTo;
 import androidx.work.Clock;
 import androidx.work.Logger;
 import androidx.work.RunnableScheduler;
+import androidx.work.impl.Scheduler;
 import androidx.work.impl.model.WorkSpec;
+
+import org.jspecify.annotations.NonNull;
 
 import java.util.HashMap;
 import java.util.Map;
-
 
 /**
  * Keeps track of {@link androidx.work.WorkRequest}s that have a timing component in a
@@ -41,18 +42,17 @@ public class DelayedWorkTracker {
 
     // Synthetic access
     @SuppressWarnings("WeakerAccess")
-    final GreedyScheduler mGreedyScheduler;
+    final Scheduler mImmediateScheduler;
 
     private final RunnableScheduler mRunnableScheduler;
     private final Clock mClock;
     private final Map<String, Runnable> mRunnables;
 
     public DelayedWorkTracker(
-            @NonNull GreedyScheduler scheduler,
+            @NonNull Scheduler immediateScheduler,
             @NonNull RunnableScheduler runnableScheduler,
             @NonNull Clock clock) {
-
-        mGreedyScheduler = scheduler;
+        mImmediateScheduler = immediateScheduler;
         mRunnableScheduler = runnableScheduler;
         mClock = clock;
         mRunnables = new HashMap<>();
@@ -66,7 +66,7 @@ public class DelayedWorkTracker {
      * @param workSpec The {@link WorkSpec} corresponding to the {@link androidx.work.WorkRequest}
      * @param nextRunTime time when work should be executed
      */
-    public void schedule(@NonNull final WorkSpec workSpec, long nextRunTime) {
+    public void schedule(final @NonNull WorkSpec workSpec, long nextRunTime) {
         Runnable existing = mRunnables.remove(workSpec.id);
         if (existing != null) {
             mRunnableScheduler.cancel(existing);
@@ -76,7 +76,7 @@ public class DelayedWorkTracker {
             @Override
             public void run() {
                 Logger.get().debug(TAG, "Scheduling work " + workSpec.id);
-                mGreedyScheduler.schedule(workSpec);
+                mImmediateScheduler.schedule(workSpec);
             }
         };
 

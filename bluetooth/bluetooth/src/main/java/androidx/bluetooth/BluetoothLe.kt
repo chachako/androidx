@@ -16,99 +16,132 @@
 
 package androidx.bluetooth
 
-import android.bluetooth.BluetoothManager
-import android.bluetooth.le.AdvertiseCallback
-import android.bluetooth.le.AdvertiseData
-import android.bluetooth.le.AdvertiseSettings
+import android.bluetooth.BluetoothManager as FwkBluetoothManager
 import android.content.Context
-import android.os.ParcelUuid
-import android.util.Log
+import androidx.annotation.IntDef
 import androidx.annotation.RequiresPermission
-import kotlinx.coroutines.channels.awaitClose
+import androidx.annotation.RestrictTo
+import androidx.annotation.VisibleForTesting
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
 /**
  * Entry point for BLE related operations. This class provides a way to perform Bluetooth LE
  * operations such as scanning, advertising, and connection with a respective [BluetoothDevice].
- *
  */
-class BluetoothLe(private val context: Context) {
+class BluetoothLe(context: Context) {
 
-    private companion object {
-        private const val TAG = "BluetoothLe"
+    companion object {
+        /** Advertise started successfully. */
+        const val ADVERTISE_STARTED: Int = 10100
+
+        internal lateinit var packageName: String
+            private set
     }
 
+    init {
+        packageName = context.applicationContext.packageName
+    }
+
+    @Target(
+        AnnotationTarget.PROPERTY,
+        AnnotationTarget.LOCAL_VARIABLE,
+        AnnotationTarget.VALUE_PARAMETER,
+        AnnotationTarget.TYPE
+    )
+    @RestrictTo(RestrictTo.Scope.LIBRARY)
+    @Retention(AnnotationRetention.SOURCE)
+    @IntDef(
+        ADVERTISE_STARTED,
+    )
+    annotation class AdvertiseResult
+
     private val bluetoothManager =
-        context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        context.getSystemService(Context.BLUETOOTH_SERVICE) as FwkBluetoothManager?
+    private val bluetoothAdapter = bluetoothManager?.adapter
+
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    @set:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    var advertiseImpl: AdvertiseImpl? =
+        bluetoothAdapter?.bluetoothLeAdvertiser?.let(::getAdvertiseImpl)
+
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    @set:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    var scanImpl: ScanImpl? = bluetoothAdapter?.bluetoothLeScanner?.let(::getScanImpl)
+
+    @VisibleForTesting
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY)
+    val client: GattClient by
+        lazy(LazyThreadSafetyMode.PUBLICATION) { GattClient(context.applicationContext) }
+
+    @VisibleForTesting
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY)
+    val server: GattServer by
+        lazy(LazyThreadSafetyMode.PUBLICATION) { GattServer(context.applicationContext) }
 
     /**
-     * Returns a [Flow] to start Bluetooth LE Advertising. When the flow is successfully collected,
-     * the operation status [AdvertiseResult] will be delivered via the
-     * flow [kotlinx.coroutines.channels.Channel].
+     * Returns a _cold_ [Flow] to start Bluetooth LE advertising
+     *
+     * Note that this method may not complete if the duration is set to 0. To stop advertising, in
+     * that case, you should cancel the coroutine.
      *
      * @param advertiseParams [AdvertiseParams] for Bluetooth LE advertising.
-     * @return A [Flow] with [AdvertiseResult] status in the data stream.
+     * @return a _cold_ [Flow] of [ADVERTISE_STARTED] if advertising is started.
+     * @throws AdvertiseException if the advertise fails.
+     * @throws IllegalArgumentException if the advertise parameters are not valid.
      */
     @RequiresPermission("android.permission.BLUETOOTH_ADVERTISE")
-    fun advertise(advertiseParams: AdvertiseParams): Flow<Int> =
-        callbackFlow {
-            val callback = object : AdvertiseCallback() {
-                override fun onStartFailure(errorCode: Int) {
-                    Log.d(TAG, "onStartFailure() called with: errorCode = $errorCode")
+    fun advertise(advertiseParams: AdvertiseParams): Flow<@AdvertiseResult Int> {
+        return advertiseImpl?.advertise(advertiseParams)
+            ?: callbackFlow { close(AdvertiseException(AdvertiseException.UNSUPPORTED)) }
+    }
 
-                    when (errorCode) {
-                        AdvertiseCallback.ADVERTISE_FAILED_DATA_TOO_LARGE ->
-                            trySend(AdvertiseResult.ADVERTISE_FAILED_DATA_TOO_LARGE)
-                        AdvertiseCallback.ADVERTISE_FAILED_FEATURE_UNSUPPORTED ->
-                            trySend(AdvertiseResult.ADVERTISE_FAILED_FEATURE_UNSUPPORTED)
-                        AdvertiseCallback.ADVERTISE_FAILED_INTERNAL_ERROR ->
-                            trySend(AdvertiseResult.ADVERTISE_FAILED_INTERNAL_ERROR)
-                        AdvertiseCallback.ADVERTISE_FAILED_TOO_MANY_ADVERTISERS ->
-                            trySend(AdvertiseResult.ADVERTISE_FAILED_TOO_MANY_ADVERTISERS)
-                    }
-                }
+    /**
+     * Returns a _cold_ [Flow] to start Bluetooth LE scanning. Scanning is used to discover
+     * advertising devices nearby.
+     *
+     * @param filters [ScanFilter]s for finding exact Bluetooth LE devices.
+     * @return a _cold_ [Flow] of [ScanResult] that matches with the given scan filter.
+     * @throws ScanException if the scan fails.
+     */
+    @RequiresPermission("android.permission.BLUETOOTH_SCAN")
+    fun scan(filters: List<ScanFilter> = emptyList()): Flow<ScanResult> {
+        return scanImpl?.scan(filters)
+            ?: callbackFlow { close(ScanException(ScanException.UNSUPPORTED)) }
+    }
 
-                override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
-                    Log.d(TAG, "onStartSuccess() called with: settingsInEffect = $settingsInEffect")
+    /**
+     * Connects to the GATT server on the remote Bluetooth device and invokes the given [block]
+     * after the connection is made.
+     *
+     * The block may not be run if connection fails.
+     *
+     * @param device a [BluetoothDevice] to connect to
+     * @param block a block of code that is invoked after the connection is made
+     * @return a result returned by the given block if the connection was successfully finished or a
+     *   failure with the corresponding reason
+     * @throws CancellationException if connect failed or it's canceled
+     */
+    @RequiresPermission("android.permission.BLUETOOTH_CONNECT")
+    suspend fun <R> connectGatt(
+        device: BluetoothDevice,
+        block: suspend GattClientScope.() -> R
+    ): R {
+        return client.connect(device, block)
+    }
 
-                    trySend(AdvertiseResult.ADVERTISE_STARTED)
-                }
-            }
-
-            val bluetoothAdapter = bluetoothManager.adapter
-            val bleAdvertiser = bluetoothAdapter.bluetoothLeAdvertiser
-
-            val advertiseSettings = with(AdvertiseSettings.Builder()) {
-                advertiseParams.isConnectable.let { setConnectable(it) }
-                advertiseParams.timeoutMillis.let { setTimeout(it) }
-                // TODO(ofy) Add when AndroidX is targeting Android U
-//                advertiseParams.isDiscoverable.let { setDiscoverable(it) }
-                build()
-            }
-
-            val advertiseData = with(AdvertiseData.Builder()) {
-                advertiseParams.shouldIncludeDeviceName.let { setIncludeDeviceName(it) }
-                advertiseParams.serviceData.forEach {
-                    addServiceData(ParcelUuid(it.key), it.value)
-                }
-                advertiseParams.manufacturerData.forEach {
-                    addManufacturerData(it.key, it.value)
-                }
-                advertiseParams.serviceUuids.forEach {
-                    addServiceUuid(ParcelUuid(it))
-                }
-                build()
-            }
-
-            Log.d(TAG, "bleAdvertiser.startAdvertising($advertiseSettings, $advertiseData) called")
-            bleAdvertiser.startAdvertising(advertiseSettings, advertiseData, callback)
-
-            awaitClose {
-                Log.d(TAG, "bleAdvertiser.stopAdvertising() called")
-                bleAdvertiser.stopAdvertising(callback)
-            }
-        }
-
-    // TODO(ofy) Add remainder of class functions such as scan, connectGatt, openGattServer...
+    /**
+     * Opens a GATT server.
+     *
+     * Only one server at a time can be opened.
+     *
+     * @param services the services that will be exposed to the clients
+     * @see GattServerConnectRequest
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun openGattServer(services: List<GattService>): GattServerConnectFlow {
+        return server.open(services)
+    }
 }

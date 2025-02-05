@@ -19,26 +19,26 @@ package androidx.compose.ui.demos.gestures
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
@@ -48,9 +48,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
-/**
- * Demonstration for how multiple DragGestureDetectors interact.
- */
+/** Demonstration for how multiple DragGestureDetectors interact. */
 @Composable
 fun NestedScrollingDemo() {
     Column {
@@ -66,9 +64,7 @@ fun NestedScrollingDemo() {
                     ScrollableContainer {
                         RepeatingColumn(repetitions = 5) {
                             // Composable that indicates it is being pressed
-                            Pressable(
-                                height = 72.dp
-                            )
+                            Pressable(height = 72.dp)
                         }
                     }
                 }
@@ -77,9 +73,7 @@ fun NestedScrollingDemo() {
     }
 }
 
-/**
- * A very simple ScrollView like implementation that allows for vertical scrolling.
- */
+/** A very simple ScrollView like implementation that allows for vertical scrolling. */
 @Composable
 private fun ScrollableContainer(content: @Composable () -> Unit) {
     var offset by remember { mutableFloatStateOf(0f) }
@@ -87,31 +81,33 @@ private fun ScrollableContainer(content: @Composable () -> Unit) {
 
     Layout(
         content = content,
-        modifier = Modifier
-            .scrollable(
-                orientation = Orientation.Vertical,
-                state = rememberScrollableState { scrollDistance ->
-                    val resultingOffset = offset + scrollDistance
-                    val dyToConsume =
-                        when {
-                            resultingOffset > 0f -> {
-                                0f - offset
-                            }
-                            resultingOffset < maxOffset -> {
-                                maxOffset - offset
-                            }
-                            else -> {
-                                scrollDistance
-                            }
+        modifier =
+            Modifier.scrollable(
+                    orientation = Orientation.Vertical,
+                    state =
+                        rememberScrollableState { scrollDistance ->
+                            val resultingOffset = offset + scrollDistance
+                            val dyToConsume =
+                                when {
+                                    resultingOffset > 0f -> {
+                                        0f - offset
+                                    }
+                                    resultingOffset < maxOffset -> {
+                                        maxOffset - offset
+                                    }
+                                    else -> {
+                                        scrollDistance
+                                    }
+                                }
+                            offset += dyToConsume
+                            dyToConsume
                         }
-                    offset += dyToConsume
-                    dyToConsume
-                }
-            )
-            .clipToBounds(),
+                )
+                .clipToBounds(),
         measurePolicy = { measurables, constraints ->
             val placeable =
-                measurables.first()
+                measurables
+                    .first()
                     .measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
 
             maxOffset = (constraints.maxHeight - placeable.height).toFloat()
@@ -123,13 +119,9 @@ private fun ScrollableContainer(content: @Composable () -> Unit) {
     )
 }
 
-/**
- * A very simple Button like implementation that visually indicates when it is being pressed.
- */
+/** A very simple Button like implementation that visually indicates when it is being pressed. */
 @Composable
-private fun Pressable(
-    height: Dp
-) {
+private fun Pressable(height: Dp) {
 
     val pressedColor = PressedColor
     val defaultColor = DefaultBackgroundColor
@@ -137,21 +129,13 @@ private fun Pressable(
     val color = remember { mutableStateOf(defaultColor) }
     val showPressed = remember { mutableStateOf(false) }
 
-    val onPress: (Offset) -> Unit = {
-        showPressed.value = true
-    }
+    val onPress: (Offset) -> Unit = { showPressed.value = true }
 
-    val onRelease = {
-        showPressed.value = false
-    }
+    val onRelease = { showPressed.value = false }
 
-    val onTap: (Offset) -> Unit = {
-        color.value = color.value.next()
-    }
+    val onTap: (Offset) -> Unit = { color.value = color.value.next() }
 
-    val onDoubleTap: (Offset) -> Unit = {
-        color.value = color.value.prev()
-    }
+    val onDoubleTap: (Offset) -> Unit = { color.value = color.value.prev() }
 
     val onLongPress = { _: Offset ->
         color.value = defaultColor
@@ -159,8 +143,7 @@ private fun Pressable(
     }
 
     val gestureDetectors =
-        Modifier
-            .pointerInput(Unit) {
+        Modifier.pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
                         onPress.invoke(it)
@@ -194,12 +177,7 @@ private fun RepeatingColumn(repetitions: Int, content: @Composable () -> Unit) {
         for (i in 1..repetitions) {
             content()
             if (i != repetitions) {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(Color(0f, 0f, 0f, .12f))
-                )
+                Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0f, 0f, 0f, .12f)))
             }
         }
     }
@@ -208,14 +186,8 @@ private fun RepeatingColumn(repetitions: Int, content: @Composable () -> Unit) {
 @Composable
 fun NestedScrollDispatchDemo() {
     LazyColumn {
-        items(5) {
-            Text("I'm text $it", modifier = Modifier.padding(16.dp))
-        }
-        item {
-            NestedScrollDispatcherSample()
-        }
-        items(30) {
-            Text("I'm text $it", modifier = Modifier.padding(16.dp))
-        }
+        items(5) { Text("I'm text $it", modifier = Modifier.padding(16.dp)) }
+        item { NestedScrollDispatcherSample() }
+        items(30) { Text("I'm text $it", modifier = Modifier.padding(16.dp)) }
     }
 }

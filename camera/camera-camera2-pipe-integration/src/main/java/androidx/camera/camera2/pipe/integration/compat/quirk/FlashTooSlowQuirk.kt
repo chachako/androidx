@@ -19,35 +19,48 @@ import android.annotation.SuppressLint
 import android.hardware.camera2.CameraCharacteristics.LENS_FACING
 import android.hardware.camera2.CameraMetadata.LENS_FACING_BACK
 import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.CameraMetadata
 
 /**
  * Quirks that denotes the device has a slow flash sequence that could result in blurred pictures.
  *
  * QuirkSummary
- * - Bug Id: 211474332
+ * - Bug Id: 211474332, 286190938, 280221967, 296814664, 296816175
  * - Description: When capturing still photos in auto flash mode, it needs more than 1 second to
- *   flash and therefore it easily results in blurred pictures.
- * - Device(s): Pixel 3a / Pixel 3a XL
+ *   flash or capture actual photo after flash, and therefore it easily results in blurred or dark
+ *   or overexposed pictures.
+ * - Device(s): Pixel 3a / Pixel 3a XL, all models of Pixel 4 and 5, SM-A320, Moto G20, Itel A48,
+ *   Realme C11 2021
  *
  * TODO(b/270421716): enable CameraXQuirksClassDetector lint check when kotlin is supported.
  */
 @SuppressLint("CameraXQuirksClassDetector")
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
-class FlashTooSlowQuirk : UseTorchAsFlashQuirk {
+public class FlashTooSlowQuirk : UseTorchAsFlashQuirk {
 
-    companion object {
+    public companion object {
+        private val AFFECTED_MODEL_PREFIXES =
+            listOf(
+                "PIXEL 3A",
+                "PIXEL 3A XL",
+                "PIXEL 4", // includes Pixel 4 XL, 4A, and 4A (5g) too
+                "PIXEL 5", // includes Pixel 5A too
+                "SM-A320",
+                "MOTO G(20)",
+                "ITEL L6006", // Itel A48
+                "RMX3231" // Realme C11 2021
+            )
 
-        // List of devices with the issue. See b/181966663.
-        private val AFFECTED_MODELS = listOf(
-            "PIXEL 3A",
-            "PIXEL 3A XL"
-        )
+        public fun isEnabled(cameraMetadata: CameraMetadata): Boolean {
+            return isAffectedModel() && cameraMetadata[LENS_FACING] == LENS_FACING_BACK
+        }
 
-        fun isEnabled(cameraMetadata: CameraMetadata): Boolean {
-            return AFFECTED_MODELS.contains(Build.MODEL.uppercase()) &&
-                cameraMetadata[LENS_FACING] == LENS_FACING_BACK
+        private fun isAffectedModel(): Boolean {
+            for (modelPrefix in AFFECTED_MODEL_PREFIXES) {
+                if (Build.MODEL.uppercase().startsWith(modelPrefix)) {
+                    return true
+                }
+            }
+            return false
         }
     }
 }

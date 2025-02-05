@@ -47,32 +47,36 @@ import androidx.tv.material3.tokens.Elevation
 /**
  * Material Design wide button for TV.
  *
+ * Samples:
+ *
+ * @sample androidx.tv.material3.samples.WideButtonSample
  * @param onClick called when this button is clicked
  * @param modifier the [Modifier] to be applied to this button
+ * @param onLongClick called when this button is long clicked (long-pressed).
  * @param enabled controls the enabled state of this button. When `false`, this component will not
- * respond to user input, and it will appear visually disabled and disabled to accessibility
- * services.
- * @param interactionSource the [MutableInteractionSource] representing the stream of [Interaction]s
- * for this button. You can create and pass in your own `remember`ed instance to observe
- * [Interaction]s and customize the appearance / behavior of this button in different states.
+ *   respond to user input, and it will appear visually disabled and disabled to accessibility
+ *   services.
+ * @param interactionSource a hoisted [MutableInteractionSource] for observing and emitting
+ *   [Interaction]s for this button. You can use this to change the button's appearance or preview
+ *   the button in different states.
  * @param background the background to be applied to the [WideButton]
  * @param scale Defines size of the Button relative to its original size.
  * @param glow Shadow to be shown behind the Button.
  * @param shape Defines the Button's shape.
  * @param contentColor Color to be used for the text content of the Button
  * @param tonalElevation tonal elevation used to apply a color shift to the button to give the it
- * higher emphasis
+ *   higher emphasis
  * @param border Defines a border around the Button.
  * @param contentPadding the spacing values to apply internally between the container and the
- * content
+ *   content
  * @param content the content of the button
  */
-@ExperimentalTvMaterial3Api
 @NonRestartableComposable
 @Composable
 fun WideButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     enabled: Boolean = true,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     background: @Composable () -> Unit = {
@@ -92,6 +96,7 @@ fun WideButton(
 ) {
     WideButtonImpl(
         onClick = onClick,
+        onLongClick = onLongClick,
         enabled = enabled,
         scale = scale,
         glow = glow,
@@ -110,44 +115,47 @@ fun WideButton(
 /**
  * Material Design wide button for TV.
  *
+ * Samples:
+ *
+ * @sample androidx.tv.material3.samples.WideButtonWithIcon
+ * @sample androidx.tv.material3.samples.WideButtonWithSubtitle
+ * @sample androidx.tv.material3.samples.WideButtonWithIconAndSubtitle
  * @param onClick called when this button is clicked
  * @param title the title content of the button, typically a [Text]
  * @param modifier the [Modifier] to be applied to this button
+ * @param onLongClick called when this button is long clicked (long-pressed).
  * @param enabled controls the enabled state of this button. When `false`, this component will not
- * respond to user input, and it will appear visually disabled and disabled to accessibility
- * services.
+ *   respond to user input, and it will appear visually disabled and disabled to accessibility
+ *   services.
  * @param icon the leading icon content of the button, typically an [Icon]
  * @param subtitle the subtitle content of the button, typically a [Text]
- * @param interactionSource the [MutableInteractionSource] representing the stream of [Interaction]s
- * for this button. You can create and pass in your own `remember`ed instance to observe
- * [Interaction]s and customize the appearance / behavior of this button in different states.
+ * @param interactionSource a hoisted [MutableInteractionSource] for observing and emitting
+ *   [Interaction]s for this button. You can use this to change the button's appearance or preview
+ *   the button in different states.
  * @param background the background to be applied to the [WideButton]
  * @param scale Defines size of the Button relative to its original size.
  * @param glow Shadow to be shown behind the Button.
  * @param shape Defines the Button's shape.
  * @param contentColor Color to be used for the text content of the Button
  * @param tonalElevation tonal elevation used to apply a color shift to the button to give the it
- * higher emphasis
+ *   higher emphasis
  * @param border Defines a border around the Button.
  * @param contentPadding the spacing values to apply internally between the container and the
- * content
+ *   content
  */
-@ExperimentalTvMaterial3Api
 @NonRestartableComposable
 @Composable
 fun WideButton(
     onClick: () -> Unit,
     title: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     enabled: Boolean = true,
     icon: (@Composable () -> Unit)? = null,
     subtitle: (@Composable () -> Unit)? = null,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     background: @Composable () -> Unit = {
-        WideButtonDefaults.Background(
-            enabled = enabled,
-            interactionSource = interactionSource
-        )
+        WideButtonDefaults.Background(enabled = enabled, interactionSource = interactionSource)
     },
     scale: ButtonScale = WideButtonDefaults.scale(),
     glow: ButtonGlow = WideButtonDefaults.glow(),
@@ -160,6 +168,7 @@ fun WideButton(
 
     WideButtonImpl(
         onClick = onClick,
+        onLongClick = onLongClick,
         enabled = enabled,
         scale = scale,
         glow = glow,
@@ -170,25 +179,22 @@ fun WideButton(
         contentPadding = contentPadding,
         interactionSource = interactionSource,
         modifier = modifier,
-        minHeight = if (subtitle == null)
-            BaseWideButtonDefaults.MinHeight
-        else
-            BaseWideButtonDefaults.MinHeightWithSubtitle,
+        minHeight =
+            if (subtitle == null) BaseWideButtonDefaults.MinHeight
+            else BaseWideButtonDefaults.MinHeightWithSubtitle,
         background = background
     ) {
         if (icon != null) {
             icon()
-            Spacer(
-                modifier = Modifier.padding(end = BaseWideButtonDefaults.HorizontalContentGap)
-            )
+            Spacer(modifier = Modifier.padding(end = BaseWideButtonDefaults.HorizontalContentGap))
         }
         Column {
             ProvideTextStyle(
                 value = MaterialTheme.typography.titleMedium,
                 content = {
                     Box(
-                        modifier = Modifier
-                            .padding(vertical = BaseWideButtonDefaults.VerticalContentGap)
+                        modifier =
+                            Modifier.padding(vertical = BaseWideButtonDefaults.VerticalContentGap)
                     ) {
                         title()
                     }
@@ -196,11 +202,13 @@ fun WideButton(
             )
             if (subtitle != null) {
                 ProvideTextStyle(
-                    value = MaterialTheme.typography.bodySmall.copy(
-                        color = LocalContentColor.current.copy(
-                            alpha = BaseWideButtonDefaults.SubtitleAlpha
-                        )
-                    ),
+                    value =
+                        MaterialTheme.typography.bodySmall.copy(
+                            color =
+                                LocalContentColor.current.copy(
+                                    alpha = BaseWideButtonDefaults.SubtitleAlpha
+                                )
+                        ),
                     content = subtitle
                 )
             }
@@ -208,7 +216,6 @@ fun WideButton(
     }
 }
 
-@ExperimentalTvMaterial3Api
 @Composable
 private fun WideButtonImpl(
     onClick: () -> Unit,
@@ -220,9 +227,10 @@ private fun WideButtonImpl(
     tonalElevation: Dp,
     border: ButtonBorder,
     contentPadding: PaddingValues,
-    interactionSource: MutableInteractionSource,
+    interactionSource: MutableInteractionSource?,
     background: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     minHeight: Dp = BaseWideButtonDefaults.MinHeight,
     content: @Composable RowScope.() -> Unit
 ) {
@@ -233,6 +241,7 @@ private fun WideButtonImpl(
     Surface(
         modifier = modifier.semantics { role = Role.Button },
         onClick = onClick,
+        onLongClick = onLongClick,
         enabled = enabled,
         scale = scale.toClickableSurfaceScale(),
         glow = glow.toClickableSurfaceGlow(),
@@ -244,26 +253,22 @@ private fun WideButtonImpl(
     ) {
         ProvideTextStyle(value = MaterialTheme.typography.labelLarge) {
             Box(
-                modifier = Modifier
-                    .defaultMinSize(
-                        minWidth = BaseWideButtonDefaults.MinWidth,
-                        minHeight = minHeight,
-                    )
-                    .onPlaced {
-                        with(density) {
-                            buttonWidth = it.size.width.toDp()
-                            buttonHeight = it.size.height.toDp()
+                modifier =
+                    Modifier.defaultMinSize(
+                            minWidth = BaseWideButtonDefaults.MinWidth,
+                            minHeight = minHeight,
+                        )
+                        .onPlaced {
+                            with(density) {
+                                buttonWidth = it.size.width.toDp()
+                                buttonHeight = it.size.height.toDp()
+                            }
                         }
-                    }
             ) {
-                Box(modifier = Modifier.size(buttonWidth, buttonHeight)) {
-                    background()
-                }
+                Box(modifier = Modifier.size(buttonWidth, buttonHeight)) { background() }
 
                 Row(
-                    modifier = Modifier
-                        .size(buttonWidth, buttonHeight)
-                        .padding(contentPadding),
+                    modifier = Modifier.size(buttonWidth, buttonHeight).padding(contentPadding),
                     verticalAlignment = Alignment.CenterVertically,
                     content = content
                 )

@@ -49,7 +49,9 @@ fun PagingBackendSample() {
                 enablePlaceholders = true,
                 maxSize = 200
             )
-        ) { myBackend.getAllData() }
+        ) {
+            myBackend.getAllData()
+        }
     }
 
     val lazyPagingItems = pager.flow.collectAsLazyPagingItems()
@@ -59,8 +61,8 @@ fun PagingBackendSample() {
             item {
                 Text(
                     text = "Waiting for items to load from the backend",
-                    modifier = Modifier.fillMaxWidth()
-                        .wrapContentWidth(Alignment.CenterHorizontally)
+                    modifier =
+                        Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)
                 )
             }
         }
@@ -73,30 +75,25 @@ fun PagingBackendSample() {
         if (lazyPagingItems.loadState.append == LoadState.Loading) {
             item {
                 CircularProgressIndicator(
-                    modifier = Modifier.fillMaxWidth()
-                        .wrapContentWidth(Alignment.CenterHorizontally)
+                    modifier =
+                        Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally)
                 )
             }
         }
     }
 }
 
-@Sampled
 @Composable
 fun ItemsDemo(flow: Flow<PagingData<String>>) {
     val lazyPagingItems = flow.collectAsLazyPagingItems()
     LazyColumn {
-        items(
-            count = lazyPagingItems.itemCount,
-            key = lazyPagingItems.itemKey()
-        ) { index ->
+        items(count = lazyPagingItems.itemCount, key = lazyPagingItems.itemKey()) { index ->
             val item = lazyPagingItems[index]
             Text("Item is $item")
         }
     }
 }
 
-@Sampled
 @Composable
 fun ItemsIndexedDemo(flow: Flow<PagingData<String>>) {
     val lazyPagingItems = flow.collectAsLazyPagingItems()

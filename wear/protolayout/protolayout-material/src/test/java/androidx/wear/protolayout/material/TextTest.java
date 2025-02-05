@@ -39,13 +39,16 @@ import android.graphics.Color;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.wear.protolayout.LayoutElementBuilders;
 import androidx.wear.protolayout.LayoutElementBuilders.Box;
 import androidx.wear.protolayout.LayoutElementBuilders.Column;
 import androidx.wear.protolayout.LayoutElementBuilders.FontStyle;
 import androidx.wear.protolayout.ModifiersBuilders.Background;
 import androidx.wear.protolayout.ModifiersBuilders.ElementMetadata;
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers;
-import androidx.wear.protolayout.expression.ProtoLayoutExperimental;
+import androidx.wear.protolayout.TypeBuilders.StringLayoutConstraint;
+import androidx.wear.protolayout.TypeBuilders.StringProp;
+import androidx.wear.protolayout.expression.DynamicBuilders.DynamicString;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -125,7 +128,7 @@ public class TextTest {
     }
 
     @Test
-    @ProtoLayoutExperimental
+    @SuppressWarnings("deprecation") // ELLIPSIZE_END
     public void testText() {
         String textContent = "Testing text.";
         Modifiers modifiers =
@@ -144,7 +147,6 @@ public class TextTest {
                         .setOverflow(TEXT_OVERFLOW_ELLIPSIZE_END)
                         .setMultilineAlignment(TEXT_ALIGN_END)
                         .setWeight(FONT_WEIGHT_BOLD)
-                        .setExcludeFontPadding(true)
                         .build();
 
         FontStyle expectedFontStyle =
@@ -165,7 +167,38 @@ public class TextTest {
         assertThat(Text.fromLayoutElement(text)).isEqualTo(text);
     }
 
-    @ProtoLayoutExperimental
+    @Test
+    public void testDynamicText() {
+        String textContent = "Testing text.";
+        String valueForLayout = "PLACEHOLDER";
+        Text text =
+                new Text.Builder(
+                                CONTEXT,
+                                new StringProp.Builder(textContent)
+                                        .setDynamicValue(DynamicString.constant(textContent))
+                                        .build(),
+                                new StringLayoutConstraint.Builder(valueForLayout)
+                                        .setAlignment(TEXT_ALIGN_END)
+                                        .build())
+                        .build();
+
+        Box box = new Box.Builder().addContent(text).build();
+        Text newText = Text.fromLayoutElement(box.getContents().get(0));
+        assertThat(newText).isNotNull();
+        StringProp newProp = newText.getText();
+        assertThat(newProp.getValue()).isEqualTo(textContent);
+        assertThat(newProp.getDynamicValue()).isNotNull();
+        assertThat(newProp.getDynamicValue().toDynamicStringProto().hasFixed()).isTrue();
+        assertThat(newProp.getDynamicValue().toDynamicStringProto().getFixed().getValue())
+                .isEqualTo(textContent);
+        StringLayoutConstraint constraint =
+                ((LayoutElementBuilders.Text) box.getContents().get(0))
+                        .getLayoutConstraintsForDynamicText();
+        assertThat(constraint.getPatternForLayout()).isEqualTo(valueForLayout);
+        assertThat(constraint.getAlignment()).isEqualTo(TEXT_ALIGN_END);
+    }
+
+    @SuppressWarnings("deprecation") // ELLIPSIZE_END
     private void assertTextIsEqual(
             Text actualText,
             String expectedTextContent,
@@ -173,14 +206,15 @@ public class TextTest {
             int expectedColor,
             FontStyle expectedFontStyle) {
         assertThat(actualText.getFontStyle().toProto()).isEqualTo(expectedFontStyle.toProto());
-        assertThat(actualText.getText()).isEqualTo(expectedTextContent);
+        assertThat(actualText.getText().getValue()).isEqualTo(expectedTextContent);
         assertThat(actualText.getColor().getArgb()).isEqualTo(expectedColor);
-        assertThat(actualText.getOverflow()).isEqualTo(TEXT_OVERFLOW_ELLIPSIZE_END);
+        assertThat(actualText.getModifiers().toProto()).isEqualTo(expectedModifiers.toProto());
+        assertThat(actualText.getOverflow())
+                .isEqualTo(TEXT_OVERFLOW_ELLIPSIZE_END);
         assertThat(actualText.getMultilineAlignment()).isEqualTo(TEXT_ALIGN_END);
         assertThat(actualText.getMaxLines()).isEqualTo(2);
         assertThat(actualText.getLineHeight())
                 .isEqualTo(getLineHeightForTypography(TYPOGRAPHY_TITLE1).getValue());
-        assertThat(actualText.getExcludeFontPadding()).isTrue();
     }
 
     private void assertFontStyle(

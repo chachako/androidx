@@ -22,11 +22,11 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 import androidx.work.impl.Scheduler
 import androidx.work.impl.WorkManagerImpl
-import androidx.work.impl.model.generationalId
 import androidx.work.impl.model.SystemIdInfoDao
 import androidx.work.impl.model.WorkNameDao
 import androidx.work.impl.model.WorkSpec
 import androidx.work.impl.model.WorkTagDao
+import androidx.work.impl.model.generationalId
 import java.util.concurrent.TimeUnit
 
 internal class DiagnosticsWorker(context: Context, parameters: WorkerParameters) :
@@ -42,14 +42,12 @@ internal class DiagnosticsWorker(context: Context, parameters: WorkerParameters)
             workManager.configuration.clock.currentTimeMillis() - TimeUnit.DAYS.toMillis(1)
         val completed = workSpecDao.getRecentlyCompletedWork(startAt)
         val running = workSpecDao.getRunningWork()
-        val enqueued = workSpecDao.getAllEligibleWorkSpecsForScheduling(
-            Scheduler.MAX_GREEDY_SCHEDULER_LIMIT
-        )
+        val enqueued =
+            workSpecDao.getAllEligibleWorkSpecsForScheduling(Scheduler.MAX_GREEDY_SCHEDULER_LIMIT)
         if (completed.isNotEmpty()) {
             Logger.get().info(TAG, "Recently completed work:\n\n")
-            Logger.get().info(
-                TAG, workSpecRows(workNameDao, workTagDao, systemIdInfoDao, completed)
-            )
+            Logger.get()
+                .info(TAG, workSpecRows(workNameDao, workTagDao, systemIdInfoDao, completed))
         }
         if (running.isNotEmpty()) {
             Logger.get().info(TAG, "Running work:\n\n")

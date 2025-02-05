@@ -21,11 +21,7 @@ import android.os.Build;
 import android.util.Range;
 import android.util.Size;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.OptIn;
-import androidx.annotation.RequiresApi;
-import androidx.camera.camera2.interop.ExperimentalCamera2Interop;
+import androidx.annotation.VisibleForTesting;
 import androidx.camera.core.CameraFilter;
 import androidx.camera.core.CameraInfo;
 import androidx.camera.core.CameraProvider;
@@ -38,10 +34,14 @@ import androidx.camera.core.impl.Identifier;
 import androidx.camera.core.impl.SessionProcessor;
 import androidx.camera.extensions.internal.AdvancedVendorExtender;
 import androidx.camera.extensions.internal.BasicVendorExtender;
+import androidx.camera.extensions.internal.ClientVersion;
 import androidx.camera.extensions.internal.ExtensionVersion;
 import androidx.camera.extensions.internal.ExtensionsUseCaseConfigFactory;
 import androidx.camera.extensions.internal.VendorExtender;
 import androidx.camera.extensions.internal.Version;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
@@ -55,14 +55,15 @@ import java.util.List;
  * to get the specified {@link CameraSelector} to bind use cases and enable the extension mode on
  * the camera.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 final class ExtensionsInfo {
     private static final String EXTENDED_CAMERA_CONFIG_PROVIDER_ID_PREFIX = ":camera:camera"
             + "-extensions-";
     private final CameraProvider mCameraProvider;
+    private @NonNull VendorExtenderFactory mVendorExtenderFactory;
 
     ExtensionsInfo(@NonNull CameraProvider cameraProvider) {
         mCameraProvider = cameraProvider;
+        mVendorExtenderFactory = (extensionMode) -> getVendorExtender(extensionMode);
     }
 
     /**
@@ -80,8 +81,7 @@ final class ExtensionsInfo {
      *                                  contained
      *                                  extension related configuration in it.
      */
-    @NonNull
-    CameraSelector getExtensionCameraSelectorAndInjectCameraConfig(
+    @NonNull CameraSelector getExtensionCameraSelectorAndInjectCameraConfig(
             @NonNull CameraSelector baseCameraSelector,
             @ExtensionMode.Mode int mode) {
         if (!isExtensionAvailable(baseCameraSelector, mode)) {
@@ -147,9 +147,7 @@ final class ExtensionsInfo {
      * @throws IllegalArgumentException If no camera can be found to support the specified
      *                                  extension mode.
      */
-    @Nullable
-    @OptIn(markerClass = ExperimentalCamera2Interop.class)
-    Range<Long> getEstimatedCaptureLatencyRange(
+    @Nullable Range<Long> getEstimatedCaptureLatencyRange(
             @NonNull CameraSelector cameraSelector,
             @ExtensionMode.Mode int mode, @Nullable Size resolution) {
         // Adds the filter to find a CameraInfo of the Camera which supports the specified
@@ -163,7 +161,8 @@ final class ExtensionsInfo {
                 newCameraSelector.filter(mCameraProvider.getAvailableCameraInfos());
 
         if (cameraInfos.isEmpty()) {
-            throw new IllegalArgumentException("No cameras found for given CameraSelector");
+            // Returns null if the specified extension mode is not available.
+            return null;
         }
 
         extensionsCameraInfo = cameraInfos.get(0);
@@ -174,7 +173,7 @@ final class ExtensionsInfo {
         }
 
         try {
-            VendorExtender vendorExtender = getVendorExtender(mode);
+            VendorExtender vendorExtender = mVendorExtenderFactory.createVendorExtender(mode);
             vendorExtender.init(extensionsCameraInfo);
 
             return vendorExtender.getEstimatedCaptureLatencyRange(resolution);
@@ -183,11 +182,36 @@ final class ExtensionsInfo {
         }
     }
 
-    private static CameraFilter getFilter(@ExtensionMode.Mode int mode) {
+    boolean isImageAnalysisSupported(@NonNull CameraSelector cameraSelector,
+            @ExtensionMode.Mode int mode) {
+        CameraSelector newCameraSelector = CameraSelector.Builder.fromSelector(
+                cameraSelector).addCameraFilter(getFilter(mode)).build();
+        CameraInfo extensionsCameraInfo;
+        List<CameraInfo> cameraInfos =
+                newCameraSelector.filter(mCameraProvider.getAvailableCameraInfos());
+
+        if (cameraInfos.isEmpty()) {
+            // Returns false if the specified extension mode is not available on this camera.
+            return false;
+        }
+
+        extensionsCameraInfo = cameraInfos.get(0);
+        VendorExtender vendorExtender = mVendorExtenderFactory.createVendorExtender(mode);
+        vendorExtender.init(extensionsCameraInfo);
+        Size[] supportedYuvSizes = vendorExtender.getSupportedYuvAnalysisResolutions();
+        return supportedYuvSizes != null && supportedYuvSizes.length > 0;
+    }
+
+    @VisibleForTesting
+    void setVendorExtenderFactory(@NonNull VendorExtenderFactory factory) {
+        mVendorExtenderFactory = factory;
+    }
+
+    private CameraFilter getFilter(@ExtensionMode.Mode int mode) {
         CameraFilter filter;
         String id = getExtendedCameraConfigProviderId(mode);
 
-        VendorExtender vendorExtender = getVendorExtender(mode);
+        VendorExtender vendorExtender = mVendorExtenderFactory.createVendorExtender(mode);
         filter = new ExtensionCameraFilter(id, vendorExtender);
         return filter;
     }
@@ -196,22 +220,25 @@ final class ExtensionsInfo {
      * Injects {@link CameraConfigProvider} for specified extension mode to the
      * {@link ExtendedCameraConfigProviderStore}.
      */
-    private static void injectExtensionCameraConfig(@ExtensionMode.Mode int mode) {
+    private void injectExtensionCameraConfig(@ExtensionMode.Mode int mode) {
         Identifier id = Identifier.create(getExtendedCameraConfigProviderId(mode));
 
         if (ExtendedCameraConfigProviderStore.getConfigProvider(id) == CameraConfigProvider.EMPTY) {
             ExtendedCameraConfigProviderStore.addConfig(id, (cameraInfo, context) -> {
-                VendorExtender vendorExtender = getVendorExtender(mode);
+                VendorExtender vendorExtender = mVendorExtenderFactory.createVendorExtender(mode);
                 vendorExtender.init(cameraInfo);
 
-                ExtensionsUseCaseConfigFactory factory = new
-                        ExtensionsUseCaseConfigFactory(mode, vendorExtender);
+                ExtensionsUseCaseConfigFactory factory = new ExtensionsUseCaseConfigFactory(
+                        vendorExtender);
 
                 ExtensionsConfig.Builder builder = new ExtensionsConfig.Builder()
                         .setExtensionMode(mode)
                         .setUseCaseConfigFactory(factory)
                         .setCompatibilityId(id)
                         .setZslDisabled(true)
+                        .setPostviewSupported(vendorExtender.isPostviewAvailable())
+                        .setCaptureProcessProgressSupported(
+                                vendorExtender.isCaptureProcessProgressAvailable())
                         .setUseCaseCombinationRequiredRule(
                                 CameraConfig.REQUIRED_RULE_COEXISTING_PREVIEW_AND_IMAGE_CAPTURE);
 
@@ -225,8 +252,7 @@ final class ExtensionsInfo {
         }
     }
 
-    @NonNull
-    private static VendorExtender getVendorExtender(int mode) {
+    static @NonNull VendorExtender getVendorExtender(@ExtensionMode.Mode int mode) {
         boolean isAdvancedExtenderSupported = isAdvancedExtenderSupported();
 
         VendorExtender vendorExtender;
@@ -242,7 +268,8 @@ final class ExtensionsInfo {
     }
 
     private static boolean isAdvancedExtenderSupported() {
-        if (ExtensionVersion.getRuntimeVersion().compareTo(Version.VERSION_1_2) < 0) {
+        if (ClientVersion.isMaximumCompatibleVersion(Version.VERSION_1_1)
+                || ExtensionVersion.isMaximumCompatibleVersion(Version.VERSION_1_1)) {
             return false;
         }
         return ExtensionVersion.isAdvancedExtenderSupported();

@@ -31,6 +31,9 @@ import org.junit.runners.model.Statement
  * A [TestRule] that will stub out the behavior of [ActivityEmbeddingController] and
  * [RuleController] with a more simple one that will support testing independent of the current
  * platform.
+ *
+ * By default [ActivityEmbeddingRule] has values as if the developer has not opted in to the
+ * ActivityEmbedding feature. There are no set rules, and each [Activity] is not embedded.
  */
 class ActivityEmbeddingRule : TestRule {
 
@@ -60,9 +63,9 @@ class ActivityEmbeddingRule : TestRule {
      * Overrides the return value of [ActivityEmbeddingController.isActivityEmbedded].
      *
      * @param activity [Activity] that will be passed to
-     * [ActivityEmbeddingController.isActivityEmbedded].
+     *   [ActivityEmbeddingController.isActivityEmbedded].
      * @param isActivityEmbedded whether [ActivityEmbeddingController.isActivityEmbedded] should
-     * return `true` for the `activity`.
+     *   return `true` for the `activity`.
      */
     fun overrideIsActivityEmbedded(activity: Activity, isActivityEmbedded: Boolean) {
         stubEmbeddingBackend.overrideIsActivityEmbedded(activity, isActivityEmbedded)
@@ -83,7 +86,7 @@ class ActivityEmbeddingRule : TestRule {
      *
      * @param activity the [Activity] corresponding to the [splitInfoList].
      * @param splitInfoList a list of [SplitInfo] that will be emitted through
-     * [SplitController.splitInfoList].
+     *   [SplitController.splitInfoList].
      */
     fun overrideSplitInfo(activity: Activity, splitInfoList: List<SplitInfo>) {
         stubEmbeddingBackend.overrideSplitInfo(activity, splitInfoList)

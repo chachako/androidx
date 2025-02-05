@@ -16,17 +16,21 @@
 
 package androidx.privacysandbox.tools.core.generator
 
+import androidx.privacysandbox.tools.core.generator.SdkActivityLauncherProxyGenerator.Companion.converterClassName
 import androidx.privacysandbox.tools.core.generator.SpecNames.contextPropertyName
 import androidx.privacysandbox.tools.core.generator.ValueConverterFileGenerator.Companion.toParcelableMethodName
 import androidx.privacysandbox.tools.core.model.AnnotatedInterface
 import androidx.privacysandbox.tools.core.model.AnnotatedValue
 import androidx.privacysandbox.tools.core.model.ParsedApi
+import androidx.privacysandbox.tools.core.model.getOnlyService
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.MemberName
 import com.squareup.kotlinpoet.TypeName
 
 class ClientBinderCodeConverter(api: ParsedApi) : BinderCodeConverter(api) {
+    private val basePackageName = api.getOnlyService().type.packageName
+    private val activityLauncherConverterClass = ClassName(basePackageName, converterClassName)
 
     override fun convertToInterfaceModelCode(
         annotatedInterface: AnnotatedInterface,
@@ -54,10 +58,11 @@ class ClientBinderCodeConverter(api: ParsedApi) : BinderCodeConverter(api) {
                         "(%interface:L as %clientProxy:T).coreLibInfo, " +
                         "%interface:L.remote)",
                     hashMapOf<String, Any>(
-                        "coreLibInfoConverter" to ClassName(
-                            annotatedInterface.type.packageName,
-                            annotatedInterface.coreLibInfoConverterName()
-                        ),
+                        "coreLibInfoConverter" to
+                            ClassName(
+                                annotatedInterface.type.packageName,
+                                annotatedInterface.coreLibInfoConverterName()
+                            ),
                         "toParcelable" to toParcelableMethodName,
                         "interface" to expression,
                         "context" to contextPropertyName,
@@ -67,7 +72,9 @@ class ClientBinderCodeConverter(api: ParsedApi) : BinderCodeConverter(api) {
             }
         }
         return CodeBlock.of(
-            "(%L as %T).remote", expression, annotatedInterface.clientProxyNameSpec()
+            "(%L as %T).remote",
+            expression,
+            annotatedInterface.clientProxyNameSpec()
         )
     }
 
@@ -95,6 +102,20 @@ class ClientBinderCodeConverter(api: ParsedApi) : BinderCodeConverter(api) {
                 value.converterNameSpec(),
                 ValueConverterFileGenerator.fromParcelableMethodName
             ),
+            expression,
+        )
+
+    override fun convertToActivityLauncherBinderCode(expression: String): CodeBlock =
+        CodeBlock.of(
+            "%M(%L)",
+            MemberName(activityLauncherConverterClass, "toBinder"),
+            expression,
+        )
+
+    override fun convertToActivityLauncherModelCode(expression: String): CodeBlock =
+        CodeBlock.of(
+            "%M(%L)",
+            MemberName(activityLauncherConverterClass, "getLocalOrProxyLauncher"),
             expression,
         )
 }

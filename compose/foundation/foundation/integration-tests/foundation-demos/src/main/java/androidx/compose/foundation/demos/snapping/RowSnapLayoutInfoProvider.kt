@@ -16,49 +16,46 @@
 
 package androidx.compose.foundation.demos.snapping
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.gestures.snapping.SnapLayoutInfoProvider
-import androidx.compose.ui.unit.Density
 import kotlin.math.abs
+import kotlin.math.absoluteValue
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlin.math.sign
 
-@OptIn(ExperimentalFoundationApi::class)
 fun SnapLayoutInfoProvider(
     scrollState: ScrollState,
-    itemSize: Density.() -> Float,
-    layoutSize: Density.() -> Float
-) = object : SnapLayoutInfoProvider {
+    itemSize: () -> Float,
+    layoutSize: () -> Float
+) =
+    object : SnapLayoutInfoProvider {
 
-    fun Density.nextFullItemCenter(layoutCenter: Float): Float {
-        val intItemSize = itemSize().roundToInt()
-        return floor((layoutCenter + calculateSnapStepSize()) / itemSize().roundToInt()) *
-            intItemSize
+        override fun calculateApproachOffset(velocity: Float, decayOffset: Float): Float {
+            val calculatedItemSize = itemSize.invoke()
+            return (decayOffset.absoluteValue - calculatedItemSize).coerceAtLeast(0.0f) *
+                calculatedItemSize.sign
+        }
+
+        fun nextFullItemCenter(layoutCenter: Float): Float {
+            val intItemSize = itemSize().roundToInt()
+            return floor((layoutCenter + itemSize()) / itemSize().roundToInt()) * intItemSize
+        }
+
+        fun previousFullItemCenter(layoutCenter: Float): Float {
+            val intItemSize = itemSize().roundToInt()
+            return ceil((layoutCenter - itemSize()) / itemSize().roundToInt()) * intItemSize
+        }
+
+        override fun calculateSnapOffset(velocity: Float): Float {
+            val layoutCenter = layoutSize() / 2f + scrollState.value + itemSize() / 2f
+            val lowerBound = nextFullItemCenter(layoutCenter) - layoutCenter
+            val upperBound = previousFullItemCenter(layoutCenter) - layoutCenter
+
+            return calculateFinalOffset(velocity, upperBound, lowerBound)
+        }
     }
-
-    fun Density.previousFullItemCenter(layoutCenter: Float): Float {
-        val intItemSize = itemSize().roundToInt()
-        return ceil((layoutCenter - calculateSnapStepSize()) / itemSize().roundToInt()) *
-            intItemSize
-    }
-
-    override fun Density.calculateSnappingOffset(currentVelocity: Float): Float {
-        val layoutCenter = layoutSize() / 2f + scrollState.value + calculateSnapStepSize() / 2f
-        val lowerBound = nextFullItemCenter(layoutCenter) - layoutCenter
-        val upperBound = previousFullItemCenter(layoutCenter) - layoutCenter
-
-        return calculateFinalOffset(currentVelocity, upperBound, lowerBound)
-    }
-
-    override fun Density.calculateSnapStepSize(): Float {
-        return itemSize()
-    }
-
-    override fun Density.calculateApproachOffset(initialVelocity: Float): Float = 0f
-}
 
 internal fun calculateFinalOffset(velocity: Float, lowerBound: Float, upperBound: Float): Float {
 
@@ -66,19 +63,19 @@ internal fun calculateFinalOffset(velocity: Float, lowerBound: Float, upperBound
         return this != Float.POSITIVE_INFINITY && this != Float.NEGATIVE_INFINITY
     }
 
-    val finalDistance = when (sign(velocity)) {
-        0f -> {
-            if (abs(upperBound) <= abs(lowerBound)) {
-                upperBound
-            } else {
-                lowerBound
+    val finalDistance =
+        when (sign(velocity)) {
+            0f -> {
+                if (abs(upperBound) <= abs(lowerBound)) {
+                    upperBound
+                } else {
+                    lowerBound
+                }
             }
+            1f -> upperBound
+            -1f -> lowerBound
+            else -> 0f
         }
-
-        1f -> upperBound
-        -1f -> lowerBound
-        else -> 0f
-    }
 
     return if (finalDistance.isValidDistance()) {
         finalDistance

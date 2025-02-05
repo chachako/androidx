@@ -16,7 +16,7 @@
 
 package androidx.credentials;
 
-import static androidx.credentials.internal.FrameworkImplHelper.getFinalCreateCredentialData;
+import static androidx.credentials.internal.ConversionUtilsKt.getFinalCreateCredentialData;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -78,7 +78,24 @@ public class CreateCredentialRequestDisplayInfoJavaTest {
         assertThat(displayInfo.getUserId()).isEqualTo(expectedUserId);
         assertThat(displayInfo.getUserDisplayName()).isEqualTo(expectedDisplayName);
         assertThat(displayInfo.getCredentialTypeIcon()).isNull();
-        assertThat(displayInfo.getDefaultProvider()).isNull();
+        assertThat(displayInfo.getPreferDefaultProvider()).isNull();
+    }
+
+    @SdkSuppress(minSdkVersion = 34, codeName = "UpsideDownCake")
+    @Test
+    public void constructWithUserIdAndDisplayNameAndDefaultProvider_success() {
+        CharSequence expectedUserId = "userId";
+        CharSequence expectedDisplayName = "displayName";
+        String expectedDefaultProvider = "com.test/com.test.TestProviderComponent";
+
+        CreateCredentialRequest.DisplayInfo displayInfo =
+                new CreateCredentialRequest.DisplayInfo(expectedUserId,
+                        expectedDisplayName, expectedDefaultProvider);
+
+        assertThat(displayInfo.getUserId()).isEqualTo(expectedUserId);
+        assertThat(displayInfo.getUserDisplayName()).isEqualTo(expectedDisplayName);
+        assertThat(displayInfo.getCredentialTypeIcon()).isNull();
+        assertThat(displayInfo.getPreferDefaultProvider()).isEqualTo(expectedDefaultProvider);
     }
 
     @SdkSuppress(minSdkVersion = 28)
@@ -96,17 +113,17 @@ public class CreateCredentialRequestDisplayInfoJavaTest {
         assertThat(displayInfo.getUserId()).isEqualTo(expectedUserId);
         assertThat(displayInfo.getUserDisplayName()).isEqualTo(expectedDisplayName);
         assertThat(displayInfo.getCredentialTypeIcon()).isEqualTo(expectedIcon);
-        assertThat(displayInfo.getDefaultProvider()).isEqualTo(expectedDefaultProvider);
+        assertThat(displayInfo.getPreferDefaultProvider()).isEqualTo(expectedDefaultProvider);
     }
 
-    @SdkSuppress(minSdkVersion = 28)
+    @SdkSuppress(minSdkVersion = 34)
     @Test
     public void constructFromBundle_success() {
         String expectedUserId = "userId";
         CreatePasswordRequest request = new CreatePasswordRequest(expectedUserId, "password");
 
         CreateCredentialRequest.DisplayInfo displayInfo =
-                CreateCredentialRequest.DisplayInfo.parseFromCredentialDataBundle(
+                CreateCredentialRequest.DisplayInfo.createFrom(
                         getFinalCreateCredentialData(
                                 request, mContext)
                 );
@@ -115,6 +132,6 @@ public class CreateCredentialRequestDisplayInfoJavaTest {
         assertThat(displayInfo.getUserDisplayName()).isNull();
         assertThat(displayInfo.getCredentialTypeIcon().getResId()).isEqualTo(
                 R.drawable.ic_password);
-        assertThat(displayInfo.getDefaultProvider()).isNull();
+        assertThat(displayInfo.getPreferDefaultProvider()).isNull();
     }
 }

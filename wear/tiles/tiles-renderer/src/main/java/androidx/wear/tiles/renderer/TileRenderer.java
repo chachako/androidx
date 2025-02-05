@@ -19,27 +19,41 @@ package androidx.wear.tiles.renderer;
 import static androidx.core.util.Preconditions.checkNotNull;
 
 import android.content.Context;
+import android.util.ArrayMap;
 import android.view.View;
 import android.view.ViewGroup;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import androidx.annotation.RestrictTo;
 import androidx.annotation.StyleRes;
 import androidx.wear.protolayout.LayoutElementBuilders;
 import androidx.wear.protolayout.ResourceBuilders;
 import androidx.wear.protolayout.StateBuilders;
+import androidx.wear.protolayout.expression.AppDataKey;
+import androidx.wear.protolayout.expression.DynamicDataBuilders.DynamicDataValue;
+import androidx.wear.protolayout.expression.PlatformDataKey;
+import androidx.wear.protolayout.expression.pipeline.DynamicTypeAnimator;
+import androidx.wear.protolayout.expression.pipeline.PlatformDataProvider;
 import androidx.wear.protolayout.expression.pipeline.StateStore;
 import androidx.wear.protolayout.proto.LayoutElementProto;
 import androidx.wear.protolayout.proto.ResourceProto;
 import androidx.wear.protolayout.renderer.impl.ProtoLayoutViewInstance;
+import androidx.wear.protolayout.renderer.inflater.ProtoLayoutThemeImpl;
 import androidx.wear.tiles.TileService;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -68,13 +82,23 @@ public final class TileRenderer {
          *
          * @param nextState The state that the next tile should be in.
          */
-        void onClick(@NonNull androidx.wear.tiles.StateBuilders.State nextState);
+        void onClick(androidx.wear.tiles.StateBuilders.@NonNull State nextState);
     }
 
-    @NonNull private final ProtoLayoutViewInstance mInstance;
-    @Nullable private final LayoutElementProto.Layout mLayout;
-    @Nullable private final ResourceProto.Resources mResources;
-    @NonNull private final ListeningExecutorService mUiExecutor;
+    private final @NonNull Context mUiContext;
+    private final @NonNull Executor mLoadActionExecutor;
+    private final @NonNull Consumer<StateBuilders.State> mLoadActionListener;
+
+    @StyleRes int mTilesTheme = 0; // Default theme.
+
+    private final @NonNull Map<PlatformDataProvider, Set<PlatformDataKey<?>>>
+            mPlatformDataProviders = new ArrayMap<>();
+
+    private final @NonNull ProtoLayoutViewInstance mInstance;
+    private final LayoutElementProto.@Nullable Layout mLayout;
+    private final ResourceProto.@Nullable Resources mResources;
+    private final @NonNull ListeningExecutorService mUiExecutor;
+    private final @NonNull StateStore mStateStore = new StateStore(ImmutableMap.of());
 
     /**
      * Default constructor.
@@ -84,23 +108,25 @@ public final class TileRenderer {
      * @param resources The resources for the Tile.
      * @param loadActionExecutor Executor for {@code loadActionListener}.
      * @param loadActionListener Listener for clicks that will cause the contents to be reloaded.
-     * @deprecated Use {@link #TileRenderer(Context, Executor, Consumer)} which accepts Layout and
-     *     Resources in {@link #inflateAsync(LayoutElementBuilders.Layout,
-     *     ResourceBuilders.Resources, ViewGroup)} method.
+     * @deprecated Use {@link TileRenderer.Builder} which accepts Layout and Resources in {@link
+     *     #inflateAsync(LayoutElementBuilders.Layout, ResourceBuilders.Resources, ViewGroup)}
+     *     method.
      */
     @Deprecated
     public TileRenderer(
             @NonNull Context uiContext,
-            @NonNull androidx.wear.tiles.LayoutElementBuilders.Layout layout,
-            @NonNull androidx.wear.tiles.ResourceBuilders.Resources resources,
+            androidx.wear.tiles.LayoutElementBuilders.@NonNull Layout layout,
+            androidx.wear.tiles.ResourceBuilders.@NonNull Resources resources,
             @NonNull Executor loadActionExecutor,
             @NonNull LoadActionListener loadActionListener) {
         this(
                 uiContext,
+                /* tilesTheme= */ 0,
                 loadActionExecutor,
                 toStateConsumer(loadActionListener),
                 layout.toProto(),
-                resources.toProto());
+                resources.toProto(),
+                /* platformDataProviders */ null);
     }
 
     /**
@@ -113,28 +139,33 @@ public final class TileRenderer {
      * @param resources The resources for the Tile.
      * @param loadActionExecutor Executor for {@code loadActionListener}.
      * @param loadActionListener Listener for clicks that will cause the contents to be reloaded.
-     * @deprecated Use {@link #TileRenderer(Context, Executor, Consumer)} which accepts Layout and
-     *     Resources in {@link #inflateAsync(LayoutElementBuilders.Layout,
-     *     ResourceBuilders.Resources, ViewGroup)} method.
+     * @deprecated Use {@link TileRenderer.Builder} which accepts Layout and Resources in {@link
+     *     #inflateAsync(LayoutElementBuilders.Layout, ResourceBuilders.Resources, ViewGroup)}
+     *     method.
      */
     @Deprecated
     public TileRenderer(
             @NonNull Context uiContext,
-            @NonNull androidx.wear.tiles.LayoutElementBuilders.Layout layout,
+            androidx.wear.tiles.LayoutElementBuilders.@NonNull Layout layout,
             @StyleRes int tilesTheme,
-            @NonNull androidx.wear.tiles.ResourceBuilders.Resources resources,
+            androidx.wear.tiles.ResourceBuilders.@NonNull Resources resources,
             @NonNull Executor loadActionExecutor,
             @NonNull LoadActionListener loadActionListener) {
-        // TODO(b/272527869): Enable setting theme.
         this(
                 uiContext,
+                tilesTheme,
                 loadActionExecutor,
                 toStateConsumer(loadActionListener),
                 layout.toProto(),
-                resources.toProto());
+                resources.toProto(),
+                /* platformDataProviders */ null);
     }
 
     /**
+     * Constructor for {@link TileRenderer}.
+     *
+     * <p>It is recommended to use the new {@link TileRenderer.Builder} instead.
+     *
      * @param uiContext A {@link Context} suitable for interacting with the UI.
      * @param loadActionExecutor Executor for {@code loadActionListener}.
      * @param loadActionListener Listener for clicks that will cause the contents to be reloaded.
@@ -145,18 +176,27 @@ public final class TileRenderer {
             @NonNull Consumer<StateBuilders.State> loadActionListener) {
         this(
                 uiContext,
+                /* tilesTheme= */ 0,
                 loadActionExecutor,
                 loadActionListener,
                 /* layout= */ null,
-                /* resources= */ null);
+                /* resources= */ null,
+                /* platformDataProviders */ null);
     }
 
     private TileRenderer(
             @NonNull Context uiContext,
+            @StyleRes int tilesTheme,
             @NonNull Executor loadActionExecutor,
             @NonNull Consumer<StateBuilders.State> loadActionListener,
-            @Nullable LayoutElementProto.Layout layout,
-            @Nullable ResourceProto.Resources resources) {
+            LayoutElementProto.@Nullable Layout layout,
+            ResourceProto.@Nullable Resources resources,
+            @Nullable Map<PlatformDataProvider, Set<PlatformDataKey<?>>> platformDataProviders) {
+
+        this.mUiContext = uiContext;
+        this.mTilesTheme = tilesTheme;
+        this.mLoadActionExecutor = loadActionExecutor;
+        this.mLoadActionListener = loadActionListener;
         this.mLayout = layout;
         this.mResources = resources;
         this.mUiExecutor = MoreExecutors.newDirectExecutorService();
@@ -172,18 +212,32 @@ public final class TileRenderer {
                                 uiContext, mUiExecutor, mUiExecutor, TileService.EXTRA_CLICKABLE_ID)
                         .setAnimationEnabled(true)
                         .setIsViewFullyVisible(true)
-                        .setStateStore(new StateStore(ImmutableMap.of()))
+                        .setStateStore(mStateStore)
                         .setLoadActionListener(instanceListener);
+        if (tilesTheme != 0) {
+            config.setProtoLayoutTheme(new ProtoLayoutThemeImpl(uiContext, tilesTheme));
+        }
+        if (platformDataProviders != null) {
+            for (Map.Entry<PlatformDataProvider, Set<PlatformDataKey<?>>> entry :
+                    platformDataProviders.entrySet()) {
+                config.addPlatformDataProvider(
+                        entry.getKey(), entry.getValue().toArray(new PlatformDataKey[] {}));
+            }
+        }
         this.mInstance = new ProtoLayoutViewInstance(config.build());
     }
 
-    @NonNull
-    @SuppressWarnings("deprecation") // TODO(b/276343540): Use protolayout types
-    private static Consumer<StateBuilders.State> toStateConsumer(
+    @SuppressWarnings("deprecation") // For backward compatibility
+    private static @NonNull Consumer<StateBuilders.State> toStateConsumer(
             @NonNull LoadActionListener loadActionListener) {
         return nextState ->
                 loadActionListener.onClick(
                         androidx.wear.tiles.StateBuilders.State.fromProto(nextState.toProto()));
+    }
+
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP_PREFIX)
+    public @NonNull List<DynamicTypeAnimator> getAnimations() {
+        return this.mInstance.getAnimations();
     }
 
     /**
@@ -198,8 +252,7 @@ public final class TileRenderer {
      *     deprecated constructors that accept Layout and Resources.
      */
     @Deprecated
-    @Nullable
-    public View inflate(@NonNull ViewGroup parent) {
+    public @Nullable View inflate(@NonNull ViewGroup parent) {
         String errorMessage =
                 "This method only works with the deprecated constructors that accept Layout and"
                         + " Resources.";
@@ -220,6 +273,20 @@ public final class TileRenderer {
     }
 
     /**
+     * Sets the state for the current (and future) layouts. This is equivalent to setting the tile
+     * state via {@link StateBuilders.State.Builder#addKeyToValueMapping(AppDataKey,
+     * DynamicDataValue)}
+     *
+     * @param newState the state to use for the current layout (and any future layouts). This value
+     *     will replace any previously set state.
+     * @throws IllegalStateException if number of {@code newState} entries is greater than {@link
+     *     StateStore#getMaxStateEntryCount()}.
+     */
+    public void setState(@NonNull Map<AppDataKey<?>, DynamicDataValue<?>> newState) {
+        mStateStore.setAppStateEntryValues(newState);
+    }
+
+    /**
      * Inflates a Tile into {@code parent}.
      *
      * @param layout The portion of the Tile to render.
@@ -229,20 +296,110 @@ public final class TileRenderer {
      *     empty or the top-level LayoutElement has no inner set, or the top-level LayoutElement
      *     contains an unsupported inner type.
      */
-    @NonNull
-    public ListenableFuture<View> inflateAsync(
-            @NonNull LayoutElementBuilders.Layout layout,
-            @NonNull ResourceBuilders.Resources resources,
+    public @NonNull ListenableFuture<View> inflateAsync(
+            LayoutElementBuilders.@NonNull Layout layout,
+            ResourceBuilders.@NonNull Resources resources,
             @NonNull ViewGroup parent) {
         return inflateLayout(layout.toProto(), resources.toProto(), parent);
     }
 
-    @NonNull
-    private ListenableFuture<View> inflateLayout(
-            @NonNull LayoutElementProto.Layout layout,
-            @NonNull ResourceProto.Resources resources,
+    private @NonNull ListenableFuture<View> inflateLayout(
+            LayoutElementProto.@NonNull Layout layout,
+            ResourceProto.@NonNull Resources resources,
             @NonNull ViewGroup parent) {
         ListenableFuture<Void> result = mInstance.renderAndAttach(layout, resources, parent);
         return FluentFuture.from(result).transform(ignored -> parent.getChildAt(0), mUiExecutor);
+    }
+
+    /** Returns the {@link Context} suitable for interacting with the UI. */
+    public @NonNull Context getUiContext() {
+        return mUiContext;
+    }
+
+    /** Returns the {@link Executor} for {@code loadActionListener}. */
+    public @NonNull Executor getLoadActionExecutor() {
+        return mLoadActionExecutor;
+    }
+
+    /** Returns the Listener for clicks that will cause the contents to be reloaded. */
+    public @NonNull Consumer<StateBuilders.State> getLoadActionListener() {
+        return mLoadActionListener;
+    }
+
+    /**
+     * Returns the theme to use for this Tile instance. This can be used to customise things like
+     * the default font family. Defaults to zero (default theme) if not specified by {@link
+     * Builder#setTilesTheme(int)}.
+     */
+    public int getTilesTheme() {
+        return mTilesTheme;
+    }
+
+    /** Returns the platform data providers that will be registered for this Tile instance. */
+    public @NonNull Map<PlatformDataProvider, Set<PlatformDataKey<?>>> getPlatformDataProviders() {
+        return Collections.unmodifiableMap(mPlatformDataProviders);
+    }
+
+    /** Builder for {@link TileRenderer}. */
+    public static final class Builder {
+        private final @NonNull Context mUiContext;
+        private final @NonNull Executor mLoadActionExecutor;
+        private final @NonNull Consumer<StateBuilders.State> mLoadActionListener;
+
+        @StyleRes int mTilesTheme = 0; // Default theme.
+
+        private final @NonNull Map<PlatformDataProvider, Set<PlatformDataKey<?>>>
+                mPlatformDataProviders = new ArrayMap<>();
+
+        /**
+         * Builder for the {@link TileRenderer} class.
+         *
+         * @param uiContext A {@link Context} suitable for interacting with the UI.
+         * @param loadActionExecutor Executor for {@code loadActionListener}.
+         * @param loadActionListener Listener for clicks that will cause the contents to be
+         *     reloaded.
+         */
+        public Builder(
+                @NonNull Context uiContext,
+                @NonNull Executor loadActionExecutor,
+                @NonNull Consumer<StateBuilders.State> loadActionListener) {
+            this.mUiContext = uiContext;
+            this.mLoadActionExecutor = loadActionExecutor;
+            this.mLoadActionListener = loadActionListener;
+        }
+
+        /**
+         * Sets the theme to use for this Tile instance. This can be used to customise things like
+         * the default font family. If not set, zero (default theme) will be used.
+         */
+        public @NonNull Builder setTilesTheme(@StyleRes int tilesTheme) {
+            mTilesTheme = tilesTheme;
+            return this;
+        }
+
+        /**
+         * Adds a {@link PlatformDataProvider} that will be registered for the given {@code
+         * supportedKeys}. Adding the same {@link PlatformDataProvider} several times will override
+         * previous entries instead of adding multiple entries.
+         */
+        public @NonNull Builder addPlatformDataProvider(
+                @NonNull PlatformDataProvider platformDataProvider,
+                PlatformDataKey<?> @NonNull ... supportedKeys) {
+            this.mPlatformDataProviders.put(
+                    platformDataProvider, ImmutableSet.copyOf(supportedKeys));
+            return this;
+        }
+
+        /** Builds {@link TileRenderer} object. */
+        public @NonNull TileRenderer build() {
+            return new TileRenderer(
+                    mUiContext,
+                    mTilesTheme,
+                    mLoadActionExecutor,
+                    mLoadActionListener,
+                    /* layout= */ null,
+                    /* resources= */ null,
+                    mPlatformDataProviders);
+        }
     }
 }

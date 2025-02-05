@@ -16,11 +16,9 @@
 
 package androidx.compose.foundation.text.modifiers
 
+import androidx.compose.foundation.internal.requirePreconditionNotNull
 import androidx.compose.foundation.text.DefaultMinLines
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorProducer
 import androidx.compose.ui.graphics.Shadow
@@ -44,8 +42,13 @@ import androidx.compose.ui.node.invalidateLayer
 import androidx.compose.ui.node.invalidateMeasurement
 import androidx.compose.ui.node.invalidateSemantics
 import androidx.compose.ui.semantics.SemanticsPropertyReceiver
+import androidx.compose.ui.semantics.clearTextSubstitution
 import androidx.compose.ui.semantics.getTextLayoutResult
+import androidx.compose.ui.semantics.isShowingTextSubstitution
+import androidx.compose.ui.semantics.setTextSubstitution
+import androidx.compose.ui.semantics.showTextSubstitution
 import androidx.compose.ui.semantics.text
+import androidx.compose.ui.semantics.textSubstitution
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -53,8 +56,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Density
-import kotlin.math.roundToInt
+import androidx.compose.ui.unit.Constraints.Companion.fitPrioritizingWidth
+import androidx.compose.ui.util.fastRoundToInt
+import kotlin.jvm.JvmName
 
 /**
  * Node that implements Text for [String].
@@ -73,27 +77,64 @@ internal class TextStringSimpleNode(
     private var minLines: Int = DefaultMinLines,
     private var overrideColor: ColorProducer? = null
 ) : Modifier.Node(), LayoutModifierNode, DrawModifierNode, SemanticsModifierNode {
+    override val shouldAutoInvalidate: Boolean
+        get() = false
+
+    @Suppress("PrimitiveInCollection") // Map required for use in public API.
+    // Usages of this collection are so few that the gains of using
+    // MutableObjectIntMap<AlignmentLine> and then converting to a Map<AlignmentLine, Int>
+    // as needed for the public API is not worth the performance benefit.
     private var baselineCache: MutableMap<AlignmentLine, Int>? = null
 
     private var _layoutCache: ParagraphLayoutCache? = null
     private val layoutCache: ParagraphLayoutCache
         get() {
             if (_layoutCache == null) {
-                _layoutCache = ParagraphLayoutCache(
-                    text,
-                    style,
-                    fontFamilyResolver,
-                    overflow,
-                    softWrap,
-                    maxLines,
-                    minLines,
-                )
+                _layoutCache =
+                    ParagraphLayoutCache(
+                        text,
+                        style,
+                        fontFamilyResolver,
+                        overflow,
+                        softWrap,
+                        maxLines,
+                        minLines
+                    )
             }
             return _layoutCache!!
         }
 
-    private fun getLayoutCache(density: Density): ParagraphLayoutCache {
-        return layoutCache.also { it.density = density }
+    /**
+     * Get the layout cache for the current state of the node during layout.
+     *
+     * If text substitution is active, this will return the layout cache for the substitution.
+     * Otherwise, it will return the layout cache for the original text.
+     *
+     * @receiver Current measure scope that requests the layout cache. This scope is used to update
+     *   the density value of the returned cache.
+     */
+    private fun IntrinsicMeasureScope.getLayoutCacheForMeasure(): ParagraphLayoutCache {
+        val activeCache = getLayoutCache()
+        activeCache.density = this@getLayoutCacheForMeasure
+        return activeCache
+    }
+
+    /**
+     * Get the layout cache for the current state of the node without updating the density.
+     *
+     * Warning; DO NOT USE this function from a MeasureScope. Instead please use
+     * [getLayoutCacheForMeasure].
+     *
+     * The reason this function does not update the density value is because the density should not
+     * change between layout and draw phases. This is a micro optimization to skip the unnecessary
+     * density comparison.
+     *
+     * If text substitution is active, this will return the layout cache for the substitution.
+     * Otherwise, it will return the layout cache for the original text.
+     */
+    @JvmName("getLayoutCacheOrSubstitute")
+    private fun getLayoutCache(): ParagraphLayoutCache {
+        return textSubstitution?.takeIf { it.isShowingSubstitution }?.layoutCache ?: layoutCache
     }
 
     fun updateDraw(color: ColorProducer?, style: TextStyle): Boolean {
@@ -106,18 +147,15 @@ internal class TextStringSimpleNode(
         return changed
     }
 
-    /**
-     * Element has text params to update
-     */
+    /** Element has text params to update */
     fun updateText(text: String): Boolean {
         if (this.text == text) return false
         this.text = text
+        clearSubstitution()
         return true
     }
 
-    /**
-     * Element has layout related params to update
-     */
+    /** Element has layout related params to update */
     fun updateLayoutRelatedArgs(
         style: TextStyle,
         minLines: Int,
@@ -159,18 +197,9 @@ internal class TextStringSimpleNode(
         return changed
     }
 
-    /**
-     * request invalidate based on the results of [updateText] and [updateLayoutRelatedArgs]
-     */
-    fun doInvalidations(
-        drawChanged: Boolean,
-        textChanged: Boolean,
-        layoutChanged: Boolean
-    ) {
-        if (textChanged) {
-            invalidateSemantics()
-        }
-
+    /** request invalidate based on the results of [updateText] and [updateLayoutRelatedArgs] */
+    fun doInvalidations(drawChanged: Boolean, textChanged: Boolean, layoutChanged: Boolean) {
+        // bring caches up to date even if the node is detached in case it is used again later
         if (textChanged || layoutChanged) {
             layoutCache.update(
                 text = text,
@@ -181,6 +210,17 @@ internal class TextStringSimpleNode(
                 maxLines = maxLines,
                 minLines = minLines
             )
+        }
+
+        if (!isAttached) {
+            // no-up for !isAttached. The node will invalidate when attaching again.
+            return
+        }
+        if (textChanged || (drawChanged && semanticsTextLayoutResult != null)) {
+            invalidateSemantics()
+        }
+
+        if (textChanged || layoutChanged) {
             invalidateMeasurement()
             invalidateDraw()
         }
@@ -191,30 +231,126 @@ internal class TextStringSimpleNode(
 
     private var semanticsTextLayoutResult: ((MutableList<TextLayoutResult>) -> Boolean)? = null
 
+    data class TextSubstitutionValue(
+        val original: String,
+        var substitution: String,
+        var isShowingSubstitution: Boolean = false,
+        var layoutCache: ParagraphLayoutCache? = null,
+        // TODO(b/283944749): add animation
+
+    ) {
+        // don't emit any user strings in toString
+        override fun toString(): String =
+            "TextSubstitution(" +
+                "layoutCache=$layoutCache, isShowingSubstitution=$isShowingSubstitution" +
+                ")"
+    }
+
+    private var textSubstitution: TextSubstitutionValue? = null
+
+    private fun setSubstitution(updatedText: String): Boolean {
+        val currentTextSubstitution = textSubstitution
+        if (currentTextSubstitution != null) {
+            if (updatedText == currentTextSubstitution.substitution) {
+                return false
+            }
+            currentTextSubstitution.substitution = updatedText
+            currentTextSubstitution.layoutCache?.update(
+                updatedText,
+                style,
+                fontFamilyResolver,
+                overflow,
+                softWrap,
+                maxLines,
+                minLines
+            ) ?: return false
+        } else {
+            val newTextSubstitution = TextSubstitutionValue(text, updatedText)
+            val substitutionLayoutCache =
+                ParagraphLayoutCache(
+                    updatedText,
+                    style,
+                    fontFamilyResolver,
+                    overflow,
+                    softWrap,
+                    maxLines,
+                    minLines
+                )
+            substitutionLayoutCache.density = layoutCache.density
+            newTextSubstitution.layoutCache = substitutionLayoutCache
+            textSubstitution = newTextSubstitution
+        }
+        return true
+    }
+
+    private fun clearSubstitution() {
+        textSubstitution = null
+    }
+
     override fun SemanticsPropertyReceiver.applySemantics() {
         var localSemanticsTextLayoutResult = semanticsTextLayoutResult
         if (localSemanticsTextLayoutResult == null) {
             localSemanticsTextLayoutResult = { textLayoutResult ->
-                val layout = layoutCache.slowCreateTextLayoutResultOrNull()?.also {
-                    textLayoutResult.add(it)
-                }
+                val layout =
+                    layoutCache
+                        .slowCreateTextLayoutResultOrNull(
+                            style =
+                                style.merge(color = overrideColor?.invoke() ?: Color.Unspecified)
+                        )
+                        ?.also { textLayoutResult.add(it) }
                 layout != null
-                false
             }
             semanticsTextLayoutResult = localSemanticsTextLayoutResult
         }
-        this.text = AnnotatedString(this@TextStringSimpleNode.text)
+
+        text = AnnotatedString(this@TextStringSimpleNode.text)
+        val currentTextSubstitution = this@TextStringSimpleNode.textSubstitution
+        if (currentTextSubstitution != null) {
+            isShowingTextSubstitution = currentTextSubstitution.isShowingSubstitution
+            textSubstitution = AnnotatedString(currentTextSubstitution.substitution)
+        }
+
+        setTextSubstitution { updatedText ->
+            setSubstitution(updatedText.text)
+
+            invalidateForTranslate()
+
+            true
+        }
+        showTextSubstitution {
+            if (this@TextStringSimpleNode.textSubstitution == null) {
+                return@showTextSubstitution false
+            }
+
+            this@TextStringSimpleNode.textSubstitution?.isShowingSubstitution = it
+
+            invalidateForTranslate()
+
+            true
+        }
+        clearTextSubstitution {
+            clearSubstitution()
+
+            invalidateForTranslate()
+
+            true
+        }
         getTextLayoutResult(action = localSemanticsTextLayoutResult)
     }
 
-    /**
-     * Text layout happens here
-     */
+    /** Call whenever text substitution changes state */
+    private fun invalidateForTranslate() {
+        invalidateSemantics()
+        invalidateMeasurement()
+        invalidateDraw()
+    }
+
+    /** Text layout happens here */
     override fun MeasureScope.measure(
         measurable: Measurable,
         constraints: Constraints
     ): MeasureResult {
-        val layoutCache = getLayoutCache(this)
+        val layoutCache = getLayoutCacheForMeasure()
 
         val didChangeLayout = layoutCache.layoutWithConstraints(constraints, layoutDirection)
         // ensure measure restarts when hasStaleResolvedFonts by reading in measure
@@ -224,29 +360,28 @@ internal class TextStringSimpleNode(
 
         if (didChangeLayout) {
             invalidateLayer()
-            var cache = baselineCache
+            // Map<AlignmentLine, Int> required for use in public API `layout` below
+            @Suppress("PrimitiveInCollection") var cache = baselineCache
             if (cache == null) {
-                cache = LinkedHashMap(2)
+                cache = HashMap(2)
+                baselineCache = cache
             }
-            cache[FirstBaseline] = paragraph.firstBaseline.roundToInt()
-            cache[LastBaseline] = paragraph.lastBaseline.roundToInt()
-            baselineCache = cache
+            cache[FirstBaseline] = paragraph.firstBaseline.fastRoundToInt()
+            cache[LastBaseline] = paragraph.lastBaseline.fastRoundToInt()
         }
 
         // then allow children to measure _inside_ our final box, with the above placeholders
-        val placeable = measurable.measure(
-            Constraints.fixed(
-                layoutSize.width,
-                layoutSize.height
+        val placeable =
+            measurable.measure(
+                fitPrioritizingWidth(
+                    minWidth = layoutSize.width,
+                    maxWidth = layoutSize.width,
+                    minHeight = layoutSize.height,
+                    maxHeight = layoutSize.height
+                )
             )
-        )
 
-        return layout(
-            layoutSize.width,
-            layoutSize.height,
-            baselineCache!!
-        ) {
-            // this is basically a graphicsLayer
+        return layout(layoutSize.width, layoutSize.height, baselineCache!!) {
             placeable.place(0, 0)
         }
     }
@@ -255,37 +390,44 @@ internal class TextStringSimpleNode(
         measurable: IntrinsicMeasurable,
         height: Int
     ): Int {
-        return getLayoutCache(this).minIntrinsicWidth(layoutDirection)
+        return getLayoutCacheForMeasure().minIntrinsicWidth(layoutDirection)
     }
 
     override fun IntrinsicMeasureScope.minIntrinsicHeight(
         measurable: IntrinsicMeasurable,
         width: Int
-    ): Int = getLayoutCache(this).intrinsicHeight(width, layoutDirection)
+    ): Int = getLayoutCacheForMeasure().intrinsicHeight(width, layoutDirection)
 
     override fun IntrinsicMeasureScope.maxIntrinsicWidth(
         measurable: IntrinsicMeasurable,
         height: Int
-    ): Int = getLayoutCache(this).maxIntrinsicWidth(layoutDirection)
+    ): Int = getLayoutCacheForMeasure().maxIntrinsicWidth(layoutDirection)
 
     override fun IntrinsicMeasureScope.maxIntrinsicHeight(
         measurable: IntrinsicMeasurable,
         width: Int
-    ): Int = getLayoutCache(this).intrinsicHeight(width, layoutDirection)
+    ): Int = getLayoutCacheForMeasure().intrinsicHeight(width, layoutDirection)
 
-    /**
-     * Optimized Text draw.
-     */
+    /** Optimized Text draw. */
     override fun ContentDrawScope.draw() {
-        val localParagraph = requireNotNull(layoutCache.paragraph)
+        if (!isAttached) {
+            // no-up for !isAttached. The node will invalidate when attaching again.
+            return
+        }
+
+        val layoutCache = getLayoutCache()
+        val localParagraph =
+            requirePreconditionNotNull(layoutCache.paragraph) {
+                "no paragraph (layoutCache=$_layoutCache, textSubstitution=$textSubstitution)"
+            }
+
         drawIntoCanvas { canvas ->
             val willClip = layoutCache.didOverflow
             if (willClip) {
                 val width = layoutCache.layoutSize.width.toFloat()
                 val height = layoutCache.layoutSize.height.toFloat()
-                val bounds = Rect(Offset.Zero, Size(width, height))
                 canvas.save()
-                canvas.clipRect(bounds)
+                canvas.clipRect(left = 0f, top = 0f, right = width, bottom = height)
             }
             try {
                 val textDecoration = style.textDecoration ?: TextDecoration.None
@@ -304,13 +446,14 @@ internal class TextStringSimpleNode(
                     )
                 } else {
                     val overrideColorVal = overrideColor?.invoke() ?: Color.Unspecified
-                    val color = if (overrideColorVal.isSpecified) {
-                        overrideColorVal
-                    } else if (style.color.isSpecified) {
-                        style.color
-                    } else {
-                        Color.Black
-                    }
+                    val color =
+                        if (overrideColorVal.isSpecified) {
+                            overrideColorVal
+                        } else if (style.color.isSpecified) {
+                            style.color
+                        } else {
+                            Color.Black
+                        }
                     localParagraph.paint(
                         canvas = canvas,
                         color = color,

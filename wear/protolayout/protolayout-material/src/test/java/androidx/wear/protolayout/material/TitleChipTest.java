@@ -18,6 +18,8 @@ package androidx.wear.protolayout.material;
 
 import static androidx.wear.protolayout.DimensionBuilders.dp;
 import static androidx.wear.protolayout.material.Utils.areChipColorsEqual;
+import static androidx.wear.protolayout.materialcore.Chip.METADATA_TAG_ICON;
+import static androidx.wear.protolayout.materialcore.Chip.METADATA_TAG_TEXT;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -37,6 +39,7 @@ import androidx.wear.protolayout.ModifiersBuilders.Clickable;
 import androidx.wear.protolayout.ModifiersBuilders.ElementMetadata;
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers;
 
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.internal.DoNotInstrument;
@@ -65,19 +68,35 @@ public class TitleChipTest {
         TitleChip titleChip =
                 new TitleChip.Builder(CONTEXT, MAIN_TEXT, CLICKABLE, DEVICE_PARAMETERS).build();
 
-        assertChip(titleChip, ChipDefaults.TITLE_PRIMARY_COLORS, EXPECTED_WIDTH);
+        assertChip(
+                titleChip, ChipDefaults.TITLE_PRIMARY_COLORS, EXPECTED_WIDTH, /* iconId= */ null);
     }
 
     @Test
     public void testTitleChipCustom() {
         DpProp width = dp(150);
+        String description = "Test description";
         TitleChip titleChip =
                 new TitleChip.Builder(CONTEXT, MAIN_TEXT, CLICKABLE, DEVICE_PARAMETERS)
                         .setChipColors(COLORS)
                         .setWidth(width)
+                        .setContentDescription(description)
                         .build();
 
-        assertChip(titleChip, COLORS, width);
+        assertChip(titleChip, COLORS, width, /* iconId= */ null);
+        assertThat(titleChip.getContentDescription().getValue()).isEqualTo(description);
+    }
+
+    @Test
+    public void testTitleChipIconCustomColor() {
+        String iconId = "icon_id";
+        TitleChip titleChip =
+                new TitleChip.Builder(CONTEXT, MAIN_TEXT, CLICKABLE, DEVICE_PARAMETERS)
+                        .setChipColors(COLORS)
+                        .setIconContent(iconId)
+                        .build();
+
+        assertChip(titleChip, COLORS, EXPECTED_WIDTH, /* iconId= */ iconId);
     }
 
     @Test
@@ -110,28 +129,32 @@ public class TitleChipTest {
         assertThat(TitleChip.fromLayoutElement(box)).isNull();
     }
 
-    private void assertChip(TitleChip actualTitleChip, ChipColors colors, DpProp width) {
-        assertChipIsEqual(actualTitleChip, colors, width);
-        assertFromLayoutElementChipIsEqual(actualTitleChip, colors, width);
+    private void assertChip(
+            TitleChip actualTitleChip, ChipColors colors, DpProp width, @Nullable String iconId) {
+        assertChipIsEqual(actualTitleChip, colors, width, iconId);
+        assertFromLayoutElementChipIsEqual(actualTitleChip, colors, width, iconId);
         assertThat(TitleChip.fromLayoutElement(actualTitleChip)).isEqualTo(actualTitleChip);
     }
 
-    private void assertChipIsEqual(TitleChip actualTitleChip, ChipColors colors, DpProp width) {
-        assertThat(actualTitleChip.getMetadataTag()).isEqualTo(TitleChip.METADATA_TAG);
+    private void assertChipIsEqual(
+            TitleChip actualTitleChip, ChipColors colors, DpProp width, @Nullable String iconId) {
+        String expectedTag = iconId == null ? METADATA_TAG_TEXT : METADATA_TAG_ICON;
+        assertThat(actualTitleChip.getMetadataTag()).isEqualTo(expectedTag);
         assertThat(actualTitleChip.getClickable().toProto()).isEqualTo(CLICKABLE.toProto());
         assertThat(actualTitleChip.getWidth().toContainerDimensionProto())
                 .isEqualTo(width.toContainerDimensionProto());
         assertThat(areChipColorsEqual(actualTitleChip.getChipColors(), colors)).isTrue();
         assertThat(actualTitleChip.getText()).isEqualTo(MAIN_TEXT);
+        assertThat(actualTitleChip.getIconContent()).isEqualTo(iconId);
     }
 
     private void assertFromLayoutElementChipIsEqual(
-            TitleChip chip, ChipColors colors, DpProp width) {
+            TitleChip chip, ChipColors colors, DpProp width, @Nullable String iconId) {
         Box box = new Box.Builder().addContent(chip).build();
 
         TitleChip newChip = TitleChip.fromLayoutElement(box.getContents().get(0));
 
         assertThat(newChip).isNotNull();
-        assertChipIsEqual(newChip, colors, width);
+        assertChipIsEqual(newChip, colors, width, iconId);
     }
 }

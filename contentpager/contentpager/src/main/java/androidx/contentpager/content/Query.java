@@ -26,8 +26,8 @@ import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Arrays;
 
@@ -41,7 +41,7 @@ public final class Query {
     private static final String TAG = "Query";
 
     private final Uri mUri;
-    private final @Nullable String[] mProjection;
+    private final String @Nullable [] mProjection;
     private final Bundle mQueryArgs;
 
     private final int mId;
@@ -53,10 +53,10 @@ public final class Query {
 
     Query(
             @NonNull Uri uri,
-            @Nullable String[] projection,
+            String @Nullable [] projection,
             @NonNull Bundle args,
             @Nullable CancellationSignal cancellationSignal,
-            @NonNull ContentPager.ContentCallback callback) {
+            ContentPager.@NonNull ContentCallback callback) {
 
         checkArgument(uri != null);
         checkArgument(args != null);
@@ -107,7 +107,7 @@ public final class Query {
         return mLimit;
     }
 
-    @NonNull ContentPager.ContentCallback getCallback() {
+    ContentPager.@NonNull ContentCallback getCallback() {
         return mCallback;
     }
 
@@ -120,34 +120,22 @@ public final class Query {
                     mCancellationSignal);
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-            if (DEBUG) Log.d(TAG, "Falling back to pre-O query method.");
-            return resolver.query(
-                    mUri,
-                    mProjection,
-                    null,
-                    null,
-                    null,
-                    mCancellationSignal);
-        }
-
-        if (DEBUG) Log.d(TAG, "Falling back to pre-jellybean query method.");
+        if (DEBUG) Log.d(TAG, "Falling back to pre-O query method.");
         return resolver.query(
                 mUri,
                 mProjection,
                 null,
                 null,
-                null);
+                null,
+                mCancellationSignal);
     }
 
     void cancel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-            if (mCancellationSignal != null && !mCancellationSignal.isCanceled()) {
-                if (DEBUG) {
-                    Log.d(TAG, "Attemping to cancel query provider processings: " + this);
-                }
-                mCancellationSignal.cancel();
+        if (mCancellationSignal != null && !mCancellationSignal.isCanceled()) {
+            if (DEBUG) {
+                Log.d(TAG, "Attemping to cancel query provider processings: " + this);
             }
+            mCancellationSignal.cancel();
         }
     }
 

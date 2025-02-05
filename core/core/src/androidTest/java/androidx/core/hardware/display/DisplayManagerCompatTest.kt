@@ -17,11 +17,17 @@
 package androidx.core.hardware.display
 
 import android.content.Context
+import android.os.Build
+import android.view.Display
+import androidx.core.hardware.display.DisplayManagerCompat.DISPLAY_CATEGORY_ALL
+import androidx.core.hardware.display.DisplayManagerCompat.DISPLAY_CATEGORY_BUILT_IN_DISPLAYS
+import androidx.core.hardware.display.DisplayManagerCompat.DISPLAY_TYPE_INTERNAL
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,24 +37,22 @@ import org.junit.runner.RunWith
 class DisplayManagerCompatTest {
 
     private lateinit var context: Context
+    private lateinit var displayManager: DisplayManagerCompat
 
     @Before
     fun setup() {
         context = InstrumentationRegistry.getInstrumentation().context
+        displayManager = DisplayManagerCompat.getInstance(context)
     }
 
     @Test
     fun testGetInstance() {
         val displayManagerA = DisplayManagerCompat.getInstance(context)
         assertNotNull(displayManagerA)
-
-        val displayManagerB = DisplayManagerCompat.getInstance(context)
-        assertSame(displayManagerA, displayManagerB)
     }
 
     @Test
     fun testGetDisplay() {
-        val displayManager = DisplayManagerCompat.getInstance(context)
         assertNotNull(displayManager)
 
         val displays = displayManager.displays
@@ -60,5 +64,42 @@ class DisplayManagerCompatTest {
             val actualDisplay = displayManager.getDisplay(display.displayId)
             assertNotNull(actualDisplay)
         }
+    }
+
+    @OptIn(ExperimentalDisplayApi::class)
+    @Test
+    fun testReportedBuiltInDisplaysShowInBuiltInCategory() {
+        val activeBuiltInDisplays = displayManager.displays.filter(this::isDisplayInternal)
+        val builtInDisplays = displayManager.getDisplays(DISPLAY_CATEGORY_BUILT_IN_DISPLAYS)
+
+        activeBuiltInDisplays.forEach { display ->
+            assertTrue(
+                "Expected display to be in built in displays Display: $display " +
+                    "builtInDisplays $builtInDisplays",
+                builtInDisplays.contains(display)
+            )
+        }
+    }
+
+    @OptIn(ExperimentalDisplayApi::class)
+    @Test
+    fun testAllBuiltInDisplaysAreReported() {
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S_V2)
+
+        val activeBuiltInDisplays =
+            displayManager.getDisplays(DISPLAY_CATEGORY_ALL).filter(this::isDisplayInternal)
+        val builtInDisplays = displayManager.getDisplays(DISPLAY_CATEGORY_BUILT_IN_DISPLAYS)
+
+        activeBuiltInDisplays.forEach { display ->
+            assertTrue(
+                "Expected display to be in built in displays Display: $display " +
+                    "builtInDisplays $builtInDisplays",
+                builtInDisplays.contains(display)
+            )
+        }
+    }
+
+    private fun isDisplayInternal(display: Display): Boolean {
+        return DisplayManagerCompat.getTypeCompat(display) == DISPLAY_TYPE_INTERNAL
     }
 }

@@ -1,3 +1,10 @@
+/**
+ * This file was created using the `create_project.py` script located in the
+ * `<AndroidX root>/development/project-creator` directory.
+ *
+ * Please use that script when creating a new project, rather than copying an existing project and
+ * modifying its settings.
+ */
 import com.google.common.io.Files
 import org.apache.commons.compress.utils.IOUtils
 
@@ -51,9 +58,11 @@ abstract class PrepareAssetsTask extends DefaultTask {
                 Files.copy(file, outputDir.file(file.name).get().asFile)
 
                 // Extract the profile in the apk and places it in the assets
-                ZipFile zipFile = new ZipFile(file)
-                extractZipEntry(zipFile, "assets/dexopt/baseline.prof", "${file.name}_baseline.prof")
-                extractZipEntry(zipFile, "assets/dexopt/baseline.profm", "${file.name}_baseline.profm")
+                if (file.getName().endsWith("-release.apk")) {
+                    ZipFile zipFile = new ZipFile(file)
+                    extractZipEntry(zipFile, "assets/dexopt/baseline.prof", "${file.name}_baseline.prof")
+                    extractZipEntry(zipFile, "assets/dexopt/baseline.profm", "${file.name}_baseline.profm")
+                }
             }
         }
     }
@@ -73,12 +82,19 @@ def prepareAssetsTaskProvider = tasks.register("prepareAssets", PrepareAssetsTas
     outputDir.set(layout.buildDirectory.dir("intermediates/profile-verification-assets"))
 }
 
+androidx {
+    deviceTests {
+        enableAlsoRunningOnPhysicalDevices = true
+    }
+}
+
 android {
+    compileSdk = 35
     defaultConfig {
-        minSdkVersion 23
+        minSdk = 23
     }
     sourceSets.androidTest.assets.srcDir(prepareAssetsTaskProvider.map { it.outputDir })
-    namespace "androidx.profileinstaller.integration.profileverification"
+    namespace = "androidx.profileinstaller.integration.profileverification"
 }
 
 // Define a configuration that can be resolved. This project is the consumer of test apks, i.e. it
@@ -112,5 +128,5 @@ dependencies {
 
 // It makes sure that the apks are generated before the assets are packed.
 afterEvaluate {
-    tasks.named("generateDebugAndroidTestAssets").configure { it.dependsOn(prepareAssetsTaskProvider) }
+    tasks.named("generateReleaseAndroidTestAssets").configure { it.dependsOn(prepareAssetsTaskProvider) }
 }

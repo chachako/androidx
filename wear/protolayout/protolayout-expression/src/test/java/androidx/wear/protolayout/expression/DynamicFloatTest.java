@@ -17,6 +17,7 @@
 package androidx.wear.protolayout.expression;
 
 import static androidx.wear.protolayout.expression.AnimationParameterBuilders.REPEAT_MODE_REVERSE;
+import static androidx.wear.protolayout.expression.DynamicBuilders.dynamicFloatFromProto;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -28,6 +29,7 @@ import androidx.wear.protolayout.expression.DynamicBuilders.DynamicFloat;
 import androidx.wear.protolayout.expression.DynamicBuilders.DynamicInt32;
 import androidx.wear.protolayout.expression.DynamicBuilders.DynamicString;
 import androidx.wear.protolayout.expression.proto.DynamicProto;
+import androidx.wear.protolayout.proto.FingerprintProto.NodeFingerprint;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -67,7 +69,7 @@ public final class DynamicFloatTest {
 
     @Test
     public void stateEntryValueFloat() {
-        DynamicFloat stateFloat = DynamicFloat.fromState(STATE_KEY);
+        DynamicFloat stateFloat = DynamicFloat.from(new AppDataKey<>(STATE_KEY));
 
         assertThat(stateFloat.toDynamicFloatProto().getStateSource().getSourceKey())
                 .isEqualTo(STATE_KEY);
@@ -75,8 +77,8 @@ public final class DynamicFloatTest {
 
     @Test
     public void stateToString() {
-        assertThat(DynamicFloat.fromState("key").toString())
-                .isEqualTo("StateFloatSource{sourceKey=key}");
+        assertThat(DynamicFloat.from(new AppDataKey<>("key")).toString())
+                .isEqualTo("StateFloatSource{sourceKey=key, sourceNamespace=}");
     }
 
     @Test
@@ -198,10 +200,10 @@ public final class DynamicFloatTest {
 
     @Test
     public void stateAnimatedFloat() {
-        DynamicFloat stateFloat = DynamicFloat.fromState(STATE_KEY);
-
-        DynamicFloat animatedFloat = DynamicFloat.animate(STATE_KEY);
-        DynamicFloat animatedFloatWithSpec = DynamicFloat.animate(STATE_KEY, SPEC);
+        AppDataKey<DynamicFloat> source = new AppDataKey<>(STATE_KEY);
+        DynamicFloat stateFloat = DynamicFloat.from(source);
+        DynamicFloat animatedFloat = DynamicFloat.animate(source);
+        DynamicFloat animatedFloatWithSpec = DynamicFloat.animate(source, SPEC);
 
         assertThat(animatedFloat.toDynamicFloatProto().getAnimatableDynamic().hasAnimationSpec())
                 .isFalse();
@@ -221,7 +223,7 @@ public final class DynamicFloatTest {
     public void stateAnimatedToString() {
         assertThat(
                         DynamicFloat.animate(
-                                        /* stateKey= */ "key",
+                                        new AppDataKey<>("key"),
                                         new AnimationSpec.Builder()
                                                 .setAnimationParameters(
                                                         new AnimationParameters.Builder()
@@ -230,14 +232,15 @@ public final class DynamicFloatTest {
                                                 .build())
                                 .toString())
                 .isEqualTo(
-                        "AnimatableDynamicFloat{input=StateFloatSource{sourceKey=key},"
+                        "AnimatableDynamicFloat{"
+                                + "input=StateFloatSource{sourceKey=key, sourceNamespace=},"
                                 + " animationSpec=AnimationSpec{animationParameters"
                                 + "=AnimationParameters{durationMillis=0,"
                                 + " easing=null, delayMillis=1}, repeatable=null}}");
     }
 
     @Test
-    public void validProto() {
+    public void fromByteArray_validProto() {
         DynamicFloat from = DynamicFloat.constant(CONSTANT_VALUE);
         DynamicFloat to = DynamicFloat.fromByteArray(from.toDynamicFloatByteArray());
 
@@ -245,8 +248,79 @@ public final class DynamicFloatTest {
     }
 
     @Test
-    public void invalidProto() {
+    public void fromByteArray_invalidProto() {
         assertThrows(
                 IllegalArgumentException.class, () -> DynamicFloat.fromByteArray(new byte[] {1}));
+    }
+
+    @Test
+    public void fromByteArray_existingByteArray() {
+        DynamicFloat from = DynamicFloat.constant(CONSTANT_VALUE);
+        byte[] buffer = new byte[100];
+        int written = from.toDynamicFloatByteArray(buffer, 10, 50);
+
+        DynamicFloat to = DynamicFloat.fromByteArray(buffer, 10, written);
+
+        assertThat(to.toDynamicFloatProto().getFixed().getValue()).isEqualTo(CONSTANT_VALUE);
+    }
+
+    @Test
+    public void fromByteArray_existingByteArrayTooSmall() {
+        DynamicFloat from = DynamicFloat.constant(CONSTANT_VALUE);
+        byte[] buffer = new byte[100];
+        int written = from.toDynamicFloatByteArray(buffer);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicFloat.fromByteArray(buffer, 0, written - 1));
+    }
+
+    @Test
+    public void fromByteArray_existingByteArrayTooLarge() {
+        DynamicFloat from = DynamicFloat.constant(CONSTANT_VALUE);
+        byte[] buffer = new byte[100];
+        int written = from.toDynamicFloatByteArray(buffer);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicFloat.fromByteArray(buffer, 0, written + 1));
+    }
+
+    @Test
+    public void toByteArray_existingByteArrayTooSmall() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicFloat.constant(CONSTANT_VALUE).toDynamicFloatByteArray(new byte[1]));
+    }
+
+    @Test
+    public void toByteArray_existingByteArraySameSize() {
+        DynamicFloat from = DynamicFloat.constant(CONSTANT_VALUE);
+
+        assertThat(from.toDynamicFloatByteArray(new byte[100]))
+                .isEqualTo(from.toDynamicFloatByteArray().length);
+    }
+
+    @Test
+    public void serializing_deserializing_withFingerprint() {
+        DynamicFloat from = DynamicFloat.constant(CONSTANT_VALUE);
+        NodeFingerprint fingerprint = from.getFingerprint().toProto();
+
+        DynamicProto.DynamicFloat to = from.toDynamicFloatProto(true);
+        assertThat(to.getFingerprint()).isEqualTo(fingerprint);
+
+        DynamicFloat back = dynamicFloatFromProto(to);
+        assertThat(back.getFingerprint().toProto()).isEqualTo(fingerprint);
+    }
+
+    @Test
+    public void toByteArray_fromByteArray_withFingerprint() {
+        DynamicFloat from = DynamicFloat.constant(CONSTANT_VALUE);
+        byte[] buffer = from.toDynamicFloatByteArray();
+        DynamicProto.DynamicFloat toProto =
+                DynamicFloat.fromByteArray(buffer).toDynamicFloatProto(true);
+
+        assertThat(toProto.getFixed().getValue()).isEqualTo(CONSTANT_VALUE);
+        assertThat(toProto.getFingerprint()).isEqualTo(from.getFingerprint().toProto());
     }
 }

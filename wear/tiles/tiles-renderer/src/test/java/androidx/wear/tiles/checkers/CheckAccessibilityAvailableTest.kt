@@ -16,6 +16,9 @@
 
 package androidx.wear.tiles.checkers
 
+import androidx.wear.protolayout.LayoutElementBuilders
+import androidx.wear.protolayout.ModifiersBuilders
+import androidx.wear.protolayout.TimelineBuilders
 import androidx.wear.tiles.TilesTestRunner
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
@@ -24,10 +27,8 @@ import org.junit.runner.RunWith
 @RunWith(TilesTestRunner::class)
 class CheckAccessibilityAvailableTest {
     @Test
-    @Suppress("deprecation") // TODO(b/276343540): Use protolayout types
     fun check_throwsWithNoSemantics() {
-        val entry = buildTimelineEntry(
-            androidx.wear.tiles.LayoutElementBuilders.Box.Builder().build())
+        val entry = buildTimelineEntry(LayoutElementBuilders.Box.Builder().build())
 
         var exception: CheckerException? = null
 
@@ -41,15 +42,14 @@ class CheckAccessibilityAvailableTest {
     }
 
     @Test
-    @Suppress("deprecation") // TODO(b/276343540): Use protolayout types
     fun check_doesntThrowIfSemanticsPresent() {
         val entry =
             buildTimelineEntry(
-                androidx.wear.tiles.LayoutElementBuilders.Box.Builder()
+                LayoutElementBuilders.Box.Builder()
                     .setModifiers(
-                        androidx.wear.tiles.ModifiersBuilders.Modifiers.Builder()
+                        ModifiersBuilders.Modifiers.Builder()
                             .setSemantics(
-                                androidx.wear.tiles.ModifiersBuilders.Semantics.Builder()
+                                ModifiersBuilders.Semantics.Builder()
                                     .setContentDescription("Hello World")
                                     .build()
                             )
@@ -70,17 +70,16 @@ class CheckAccessibilityAvailableTest {
     }
 
     @Test
-    @Suppress("deprecation") // TODO(b/276343540): Use protolayout types
     fun check_doesntThrowIfSemanticsPresentOnNestedElement() {
         val entry =
             buildTimelineEntry(
-                androidx.wear.tiles.LayoutElementBuilders.Box.Builder()
+                LayoutElementBuilders.Box.Builder()
                     .addContent(
-                        androidx.wear.tiles.LayoutElementBuilders.Box.Builder()
+                        LayoutElementBuilders.Box.Builder()
                             .setModifiers(
-                                androidx.wear.tiles.ModifiersBuilders.Modifiers.Builder()
+                                ModifiersBuilders.Modifiers.Builder()
                                     .setSemantics(
-                                        androidx.wear.tiles.ModifiersBuilders.Semantics.Builder()
+                                        ModifiersBuilders.Semantics.Builder()
                                             .setContentDescription("Hello World")
                                             .build()
                                     )
@@ -102,13 +101,8 @@ class CheckAccessibilityAvailableTest {
         assertThat(exception).isNull()
     }
 
-    @Suppress("deprecation") // TODO(b/276343540): Use protolayout types
-    private fun buildTimelineEntry(
-        layout: androidx.wear.tiles.LayoutElementBuilders.LayoutElement
-    ) =
-        androidx.wear.tiles.TimelineBuilders.TimelineEntry.Builder()
-            .setLayout(
-                androidx.wear.tiles.LayoutElementBuilders.Layout.Builder().setRoot(layout).build()
-            )
+    private fun buildTimelineEntry(layout: LayoutElementBuilders.LayoutElement) =
+        TimelineBuilders.TimelineEntry.Builder()
+            .setLayout(LayoutElementBuilders.Layout.Builder().setRoot(layout).build())
             .build()
 }

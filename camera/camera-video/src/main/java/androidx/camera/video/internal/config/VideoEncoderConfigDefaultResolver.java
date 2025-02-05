@@ -19,14 +19,17 @@ package androidx.camera.video.internal.config;
 import android.util.Range;
 import android.util.Size;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
+import androidx.camera.core.DynamicRange;
 import androidx.camera.core.Logger;
 import androidx.camera.core.SurfaceRequest;
 import androidx.camera.core.impl.Timebase;
 import androidx.camera.video.VideoSpec;
 import androidx.camera.video.internal.encoder.VideoEncoderConfig;
+import androidx.camera.video.internal.encoder.VideoEncoderDataSpace;
+import androidx.camera.video.internal.utils.DynamicRangeUtil;
 import androidx.core.util.Supplier;
+
+import org.jspecify.annotations.NonNull;
 
 import java.util.Objects;
 
@@ -34,7 +37,6 @@ import java.util.Objects;
  * A {@link VideoEncoderConfig} supplier that resolves requested encoder settings from a
  * {@link VideoSpec} for the given surface {@link Size} using pre-defined default values.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 public class VideoEncoderConfigDefaultResolver implements Supplier<VideoEncoderConfig> {
 
     private static final String TAG = "VidEncCfgDefaultRslvr";
@@ -45,6 +47,7 @@ public class VideoEncoderConfigDefaultResolver implements Supplier<VideoEncoderC
     private static final Size VIDEO_SIZE_BASE = new Size(1280, 720);
     private static final int VIDEO_FRAME_RATE_BASE = 30;
     static final int VIDEO_FRAME_RATE_FIXED_DEFAULT = 30;
+    private static final int VIDEO_BIT_DEPTH_BASE = 8;
     private static final Range<Integer> VALID_FRAME_RATE_RANGE = new Range<>(1, 60);
 
     private final String mMimeType;
@@ -52,6 +55,7 @@ public class VideoEncoderConfigDefaultResolver implements Supplier<VideoEncoderC
     private final Timebase mInputTimebase;
     private final VideoSpec mVideoSpec;
     private final Size mSurfaceSize;
+    private final DynamicRange mDynamicRange;
     private final Range<Integer> mExpectedFrameRateRange;
 
     /**
@@ -63,6 +67,7 @@ public class VideoEncoderConfigDefaultResolver implements Supplier<VideoEncoderC
      *                               be used with the video encoder.
      * @param surfaceSize            The size of the surface required by the camera for the video
      *                               encoder.
+     * @param dynamicRange           The dynamic range of input frames.
      * @param expectedFrameRateRange The expected source frame rate range. This should act as an
      *                               envelope for any frame rate calculated from {@code videoSpec
      *                               } and {@code videoProfile} since the source should not
@@ -73,17 +78,18 @@ public class VideoEncoderConfigDefaultResolver implements Supplier<VideoEncoderC
      */
     public VideoEncoderConfigDefaultResolver(@NonNull String mimeType,
             @NonNull Timebase inputTimebase, @NonNull VideoSpec videoSpec,
-            @NonNull Size surfaceSize, @NonNull Range<Integer> expectedFrameRateRange) {
+            @NonNull Size surfaceSize, @NonNull DynamicRange dynamicRange,
+            @NonNull Range<Integer> expectedFrameRateRange) {
         mMimeType = mimeType;
         mInputTimebase = inputTimebase;
         mVideoSpec = videoSpec;
         mSurfaceSize = surfaceSize;
+        mDynamicRange = dynamicRange;
         mExpectedFrameRateRange = expectedFrameRateRange;
     }
 
     @Override
-    @NonNull
-    public VideoEncoderConfig get() {
+    public @NonNull VideoEncoderConfig get() {
         int resolvedFrameRate = resolveFrameRate();
         Logger.d(TAG, "Resolved VIDEO frame rate: " + resolvedFrameRate + "fps");
 
@@ -92,10 +98,16 @@ public class VideoEncoderConfigDefaultResolver implements Supplier<VideoEncoderC
         // We have no other information to go off of. Scale based on fallback defaults.
         int resolvedBitrate = VideoConfigUtil.scaleAndClampBitrate(
                 VIDEO_BITRATE_BASE,
+                mDynamicRange.getBitDepth(), VIDEO_BIT_DEPTH_BASE,
                 resolvedFrameRate, VIDEO_FRAME_RATE_BASE,
                 mSurfaceSize.getWidth(), VIDEO_SIZE_BASE.getWidth(),
                 mSurfaceSize.getHeight(), VIDEO_SIZE_BASE.getHeight(),
                 videoSpecBitrateRange);
+
+        int resolvedProfile = DynamicRangeUtil.dynamicRangeToCodecProfileLevelForMime(
+                mMimeType, mDynamicRange);
+        VideoEncoderDataSpace dataSpace =
+                VideoConfigUtil.mimeAndProfileToEncoderDataSpace(mMimeType, resolvedProfile);
 
         return VideoEncoderConfig.builder()
                 .setMimeType(mMimeType)
@@ -103,6 +115,8 @@ public class VideoEncoderConfigDefaultResolver implements Supplier<VideoEncoderC
                 .setResolution(mSurfaceSize)
                 .setBitrate(resolvedBitrate)
                 .setFrameRate(resolvedFrameRate)
+                .setProfile(resolvedProfile)
+                .setDataSpace(dataSpace)
                 .build();
     }
 

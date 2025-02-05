@@ -18,11 +18,9 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-sdk
-        android:minSdkVersion="14"
         tools:overrideLibrary="android_libs.ub_uiautomator, androidx.test.uiautomator" />
 
     <application
-        android:name="androidx.multidex.MultiDexApplication"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat">
 
@@ -129,6 +127,11 @@
             android:name="androidx.appcompat.widget.AppCompatTextViewActivity"
             android:label="@string/app_compat_text_view_activity"
             android:theme="@style/Theme.TextColors"/>
+
+        <activity
+            android:name="androidx.appcompat.widget.AppCompatTextViewFontScalingTest$TextViewFontScalingActivity"
+            android:label="@string/app_compat_text_view_activity"
+            android:theme="@style/Theme.TextColors" />
 
         <activity
             android:name="androidx.appcompat.widget.AppCompatTextViewAutoSizeActivity"

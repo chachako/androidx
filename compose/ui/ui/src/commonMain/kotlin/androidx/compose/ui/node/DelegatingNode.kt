@@ -17,7 +17,7 @@
 package androidx.compose.ui.node
 
 import androidx.compose.ui.Modifier
-import org.jetbrains.annotations.TestOnly
+import androidx.compose.ui.internal.checkPrecondition
 
 /**
  * A [Modifier.Node] which is able to delegate work to other [Modifier.Node] instances.
@@ -29,7 +29,6 @@ import org.jetbrains.annotations.TestOnly
  * @sample androidx.compose.ui.samples.LazyDelegationExample
  * @sample androidx.compose.ui.samples.ConditionalDelegationExample
  * @sample androidx.compose.ui.samples.DelegateInAttachSample
- *
  * @see DelegatingNode
  */
 abstract class DelegatingNode : Modifier.Node() {
@@ -38,35 +37,42 @@ abstract class DelegatingNode : Modifier.Node() {
      * This is the kindSet of the node if it had no delegates. This will never change, but kindSet
      * might, so we cache this value to be able to more efficiently recalculate the kindSet
      */
-    @Suppress("LeakingThis")
-    internal val selfKindSet: Int = calculateNodeKindSetFrom(this)
+    @Suppress("LeakingThis") internal val selfKindSet: Int = calculateNodeKindSetFrom(this)
+
     override fun updateCoordinator(coordinator: NodeCoordinator?) {
         super.updateCoordinator(coordinator)
-        forEachImmediateDelegate {
-            it.updateCoordinator(coordinator)
-        }
+        forEachImmediateDelegate { it.updateCoordinator(coordinator) }
     }
 
     internal var delegate: Modifier.Node? = null
 
-    @TestOnly
+    // @TestOnly
     internal fun <T : DelegatableNode> delegateUnprotected(delegatableNode: T): T =
         delegate(delegatableNode)
-    @TestOnly
+
+    // @TestOnly
     internal fun undelegateUnprotected(instance: DelegatableNode) = undelegate(instance)
 
+    override fun setAsDelegateTo(owner: Modifier.Node) {
+        super.setAsDelegateTo(owner)
+        // At this point _this_ node is being delegated to, however _this_ node may also
+        // have delegates of its own, and their current `node` pointers need to be updated
+        // so that they point to the right node in the tree.
+        forEachImmediateDelegate { it.setAsDelegateTo(owner) }
+    }
+
     /**
-     * In order to properly delegate work to another [Modifier.Node], the delegated instance must
-     * be created and returned inside of a [delegate] call. Doing this will
-     * ensure that the created node instance follows all of the right lifecycles and is properly
-     * discoverable in this position of the node tree.
+     * In order to properly delegate work to another [Modifier.Node], the delegated instance must be
+     * created and returned inside of a [delegate] call. Doing this will ensure that the created
+     * node instance follows all of the right lifecycles and is properly discoverable in this
+     * position of the node tree.
      *
      * By using [delegate], the [delegatableNode] parameter is returned from this function for
      * convenience.
      *
      * This method can be called from within an `init` block, however the returned delegated node
-     * will not be attached until the delegating node is attached. If [delegate] is called after
-     * the delegating node is already attached, the returned delegated node will be attached.
+     * will not be attached until the delegating node is attached. If [delegate] is called after the
+     * delegating node is already attached, the returned delegated node will be attached.
      */
     protected fun <T : DelegatableNode> delegate(delegatableNode: T): T {
         val delegateNode = delegatableNode.node
@@ -81,7 +87,7 @@ abstract class DelegatingNode : Modifier.Node() {
                 error("Cannot delegate to an already delegated node")
             }
         }
-        check(!delegateNode.isAttached) {
+        checkPrecondition(!delegateNode.isAttached) {
             "Cannot delegate to an already attached node"
         }
         // this could be a delegate itself, so we make sure to setAsDelegateTo(node) instead of
@@ -112,7 +118,8 @@ abstract class DelegatingNode : Modifier.Node() {
             } else {
                 updateCoordinator(coordinator)
             }
-            delegateNode.attach()
+            delegateNode.markAsAttached()
+            delegateNode.runAttachLifecycle()
             autoInvalidateInsertedNode(delegateNode)
         }
         return delegatableNode
@@ -135,7 +142,8 @@ abstract class DelegatingNode : Modifier.Node() {
                 // remove from delegate chain
                 if (it.isAttached) {
                     autoInvalidateRemovedNode(it)
-                    it.detach()
+                    it.runDetachLifecycle()
+                    it.markAsDetached()
                 }
                 it.setAsDelegateTo(it) // sets "node" back to itself
                 it.aggregateChildKindSet = 0
@@ -176,7 +184,7 @@ abstract class DelegatingNode : Modifier.Node() {
             // delegating to another layout modifier. In order to properly handle this, we need
             // to require that the delegating node is itself a LayoutModifierNode to ensure that
             // they are explicitly handling the combination. If not, we throw, since
-            check(this is LayoutModifierNode) {
+            checkPrecondition(this is LayoutModifierNode) {
                 "Delegating to multiple LayoutModifierNodes without the delegating node " +
                     "implementing LayoutModifierNode itself is not allowed." +
                     "\nDelegating Node: $this" +
@@ -236,21 +244,31 @@ abstract class DelegatingNode : Modifier.Node() {
         }
     }
 
-    override fun attach() {
-        super.attach()
+    override fun markAsAttached() {
+        super.markAsAttached()
         forEachImmediateDelegate {
             it.updateCoordinator(coordinator)
             // NOTE: it might already be attached if the delegate was delegated to inside of
             // onAttach()
             if (!it.isAttached) {
-                it.attach()
+                it.markAsAttached()
             }
         }
     }
 
-    override fun detach() {
-        forEachImmediateDelegate { it.detach() }
-        super.detach()
+    override fun runAttachLifecycle() {
+        forEachImmediateDelegate { it.runAttachLifecycle() }
+        super.runAttachLifecycle()
+    }
+
+    override fun runDetachLifecycle() {
+        super.runDetachLifecycle()
+        forEachImmediateDelegate { it.runDetachLifecycle() }
+    }
+
+    override fun markAsDetached() {
+        forEachImmediateDelegate { it.markAsDetached() }
+        super.markAsDetached()
     }
 
     override fun reset() {

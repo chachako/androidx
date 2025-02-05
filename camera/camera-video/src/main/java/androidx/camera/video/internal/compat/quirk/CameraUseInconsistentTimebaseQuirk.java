@@ -19,18 +19,16 @@ package androidx.camera.video.internal.compat.quirk;
 
 import android.os.Build;
 
-import androidx.annotation.RequiresApi;
 import androidx.camera.core.impl.Quirk;
 import androidx.camera.video.internal.workaround.VideoTimebaseConverter;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 /**
  * <p>QuirkSummary
- *     Bug Id: 197805856, 280121263
+ *     Bug Id: 197805856, 280121263, 295060316, 316057919
  *     Description: Quirk that denotes some devices use a timebase for camera frames that is
  *                  different than what is reported by
  *                  {@link android.hardware.camera2.CameraCharacteristics
@@ -38,7 +36,6 @@ import java.util.Set;
  *     Device(s): Some Samsung devices and devices running on certain Qualcomm SoCs
  *     @see VideoTimebaseConverter
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 public class CameraUseInconsistentTimebaseQuirk implements Quirk {
     private static final Set<String> BUILD_HARDWARE_SET = new HashSet<>(Arrays.asList(
             "samsungexynos7570",
@@ -46,12 +43,18 @@ public class CameraUseInconsistentTimebaseQuirk implements Quirk {
             "qcom"
     ));
 
-    private static final Set<String> BUILD_SOC_MODEL_SET = new HashSet<>(Collections.singletonList(
-            "sm6375"
+    private static final Set<String> BUILD_SOC_MODEL_SET = new HashSet<>(Arrays.asList(
+            "sm4350", // Snapdragon 480 5G
+            "sm6375", // Snapdragon 695 5G
+            "sm7325"  // Snapdragon 778G 4G/5G
+    ));
+
+    private static final Set<String> BUILD_MODEL_SET = new HashSet<>(Arrays.asList(
+            "m2007j20cg", "m2007j20ct"  // Xiaomi Poco X3 NFC
     ));
 
     static boolean load() {
-        return usesAffectedSoc() || isAffectedSamsungDevice();
+        return usesAffectedSoc() || isAffectedSamsungDevice() || isAffectedModel();
     }
 
     private static boolean usesAffectedSoc() {
@@ -62,5 +65,9 @@ public class CameraUseInconsistentTimebaseQuirk implements Quirk {
     private static boolean isAffectedSamsungDevice() {
         return "SAMSUNG".equalsIgnoreCase(Build.BRAND)
                 && BUILD_HARDWARE_SET.contains(Build.HARDWARE.toLowerCase());
+    }
+
+    private static boolean isAffectedModel() {
+        return BUILD_MODEL_SET.contains(Build.MODEL.toLowerCase());
     }
 }

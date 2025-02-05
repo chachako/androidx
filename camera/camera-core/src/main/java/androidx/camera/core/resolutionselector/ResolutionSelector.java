@@ -19,11 +19,13 @@ package androidx.camera.core.resolutionselector;
 import static androidx.camera.core.resolutionselector.AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.RestrictTo;
 import androidx.camera.core.UseCase;
+import androidx.camera.core.UseCaseGroup;
+import androidx.camera.core.ViewPort;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -82,11 +84,10 @@ import java.lang.annotation.RetentionPolicy;
  * <p>When creating a ResolutionSelector instance, the
  * {@link AspectRatioStrategy#RATIO_4_3_FALLBACK_AUTO_STRATEGY} will be the default
  * {@link AspectRatioStrategy} if it is not set.
- * {@link ResolutionSelector#ALLOWED_RESOLUTIONS_NORMAL} is the default allowed resolution
- * mode. However, if neither the {@link ResolutionStrategy} nor the {@link ResolutionFilter} are
- * set, there will be no default value specified.
+ * {@link ResolutionSelector#PREFER_CAPTURE_RATE_OVER_HIGHER_RESOLUTION} is the default allowed
+ * resolution mode. However, if neither the {@link ResolutionStrategy} nor the
+ * {@link ResolutionFilter} are set, there will be no default value specified.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 public final class ResolutionSelector {
     /**
      * This mode allows CameraX to select the normal output sizes on the camera device.
@@ -97,7 +98,7 @@ public final class ResolutionSelector {
      * {@link android.hardware.camera2.CameraCharacteristics#SCALER_STREAM_CONFIGURATION_MAP}
      * camera characteristics.
      */
-    public static final int ALLOWED_RESOLUTIONS_NORMAL = 0;
+    public static final int PREFER_CAPTURE_RATE_OVER_HIGHER_RESOLUTION = 0;
     /**
      * This mode allows CameraX to select the output sizes which might result in slower capture
      * times.
@@ -118,19 +119,17 @@ public final class ResolutionSelector {
      * {@link android.hardware.camera2.CameraCharacteristics#SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION}
      * . This mode does not allow applications to select those ultra high resolutions.
      */
-    public static final int ALLOWED_RESOLUTIONS_SLOW = 1;
+    public static final int PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE = 1;
 
-    @IntDef({ALLOWED_RESOLUTIONS_NORMAL, ALLOWED_RESOLUTIONS_SLOW})
+    @IntDef({PREFER_CAPTURE_RATE_OVER_HIGHER_RESOLUTION,
+            PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE})
     @Retention(RetentionPolicy.SOURCE)
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     public @interface AllowedResolutionMode {
     }
-    @NonNull
-    private final AspectRatioStrategy mAspectRatioStrategy;
-    @Nullable
-    private final ResolutionStrategy mResolutionStrategy;
-    @Nullable
-    private final ResolutionFilter mResolutionFilter;
+    private final @NonNull AspectRatioStrategy mAspectRatioStrategy;
+    private final @Nullable ResolutionStrategy mResolutionStrategy;
+    private final @Nullable ResolutionFilter mResolutionFilter;
     @AllowedResolutionMode
     private final int mAllowedResolutionMode;
 
@@ -150,24 +149,21 @@ public final class ResolutionSelector {
      * {@link AspectRatioStrategy#RATIO_4_3_FALLBACK_AUTO_STRATEGY} if none is specified when
      * creating the ResolutionSelector.
      */
-    @NonNull
-    public AspectRatioStrategy getAspectRatioStrategy() {
+    public @NonNull AspectRatioStrategy getAspectRatioStrategy() {
         return mAspectRatioStrategy;
     }
 
     /**
      * Returns the specified {@link ResolutionStrategy}, or null if not specified.
      */
-    @Nullable
-    public ResolutionStrategy getResolutionStrategy() {
+    public @Nullable ResolutionStrategy getResolutionStrategy() {
         return mResolutionStrategy;
     }
 
     /**
      * Returns the specified {@link ResolutionFilter} implementation, or null if not specified.
      */
-    @Nullable
-    public ResolutionFilter getResolutionFilter() {
+    public @Nullable ResolutionFilter getResolutionFilter() {
         return mResolutionFilter;
     }
 
@@ -183,14 +179,12 @@ public final class ResolutionSelector {
      * Builder for a {@link ResolutionSelector}.
      */
     public static final class Builder {
-        @Nullable
-        private AspectRatioStrategy mAspectRatioStrategy = RATIO_4_3_FALLBACK_AUTO_STRATEGY;
-        @Nullable
-        private ResolutionStrategy mResolutionStrategy = null;
-        @Nullable
-        private ResolutionFilter mResolutionFilter = null;
+        private @Nullable AspectRatioStrategy mAspectRatioStrategy =
+                RATIO_4_3_FALLBACK_AUTO_STRATEGY;
+        private @Nullable ResolutionStrategy mResolutionStrategy = null;
+        private @Nullable ResolutionFilter mResolutionFilter = null;
         @AllowedResolutionMode
-        private int mAllowedResolutionMode = ALLOWED_RESOLUTIONS_NORMAL;
+        private int mAllowedResolutionMode = PREFER_CAPTURE_RATE_OVER_HIGHER_RESOLUTION;
 
         /**
          * Creates a Builder instance.
@@ -208,9 +202,8 @@ public final class ResolutionSelector {
         /**
          * Creates a Builder from an existing resolution selector.
          */
-        @NonNull
         @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-        public static Builder fromResolutionSelector(
+        public static @NonNull Builder fromResolutionSelector(
                 @NonNull ResolutionSelector resolutionSelector) {
             return new Builder(resolutionSelector);
         }
@@ -222,9 +215,20 @@ public final class ResolutionSelector {
          *
          * <p>If the aspect ratio strategy is not specified,
          * {@link AspectRatioStrategy#RATIO_4_3_FALLBACK_AUTO_STRATEGY} will be used as the default.
+         *
+         * <p>{@link UseCase}s can be bound by a {@link UseCaseGroup} with a {@link ViewPort}
+         * setting. If a {@link ViewPort} is set, it is recommended that the {@link ViewPort} and
+         * the bound {@link UseCase}s should have matching aspect ratio settings. Otherwise, the
+         * output crop rectangles may be double-cropped from the full camera sensor field of view.
+         * See {@link ViewPort.Builder} for details.
+         *
+         * <p>CameraX only supports the common 4:3 and 16:9 aspect ratio settings. Some devices may
+         * offer additional output sizes. To access these, you'll need to create a
+         * {@link ResolutionSelector} with a {@link ResolutionFilter} to find and select those
+         * specific sizes.
          */
-        @NonNull
-        public Builder setAspectRatioStrategy(@NonNull AspectRatioStrategy aspectRatioStrategy) {
+        public @NonNull Builder setAspectRatioStrategy(
+                @NonNull AspectRatioStrategy aspectRatioStrategy) {
             mAspectRatioStrategy = aspectRatioStrategy;
             return this;
         }
@@ -233,9 +237,22 @@ public final class ResolutionSelector {
          * Sets the resolution selection strategy for the {@link UseCase}. The resolution selection
          * strategy determines how the {@link UseCase} will choose the resolution of the captured
          * image.
+         *
+         * <p>Note: {@link ResolutionStrategy} works in conjunction with
+         * {@link AspectRatioStrategy} and the default {@link AspectRatioStrategy} is
+         * {@link AspectRatioStrategy#RATIO_4_3_FALLBACK_AUTO_STRATEGY}. Ensure you set a
+         * corresponding {@link AspectRatioStrategy} alongside your {@link ResolutionStrategy}.
+         * For example, if your {@link ResolutionStrategy} uses a bound size of {@code 1920x1080}
+         * and a 16:9 aspect ratio is preferred, set
+         * {@link AspectRatioStrategy#RATIO_16_9_FALLBACK_AUTO_STRATEGY} when building the
+         * {@link ResolutionSelector}.
+         *
+         * <p>CameraX only supports the common 4:3 and 16:9 aspect ratio settings. To select
+         * resolution of other aspect ratios, you'll need to create a {@link ResolutionSelector}
+         * with a {@link ResolutionFilter} to find and select those specific sizes.
          */
-        @NonNull
-        public Builder setResolutionStrategy(@NonNull ResolutionStrategy resolutionStrategy) {
+        public @NonNull Builder setResolutionStrategy(
+                @NonNull ResolutionStrategy resolutionStrategy) {
             mResolutionStrategy = resolutionStrategy;
             return this;
         }
@@ -245,8 +262,7 @@ public final class ResolutionSelector {
          * filter will filter out unsuitable sizes and sort the resolution list in the preferred
          * order. The preferred order is the order in which the resolutions should be tried first.
          */
-        @NonNull
-        public Builder setResolutionFilter(@NonNull ResolutionFilter resolutionFilter) {
+        public @NonNull Builder setResolutionFilter(@NonNull ResolutionFilter resolutionFilter) {
             mResolutionFilter = resolutionFilter;
             return this;
         }
@@ -255,10 +271,9 @@ public final class ResolutionSelector {
          * Sets the allowed resolution mode.
          *
          * <p>If not specified, the default setting is
-         * {@link ResolutionSelector#ALLOWED_RESOLUTIONS_NORMAL}.
+         * {@link ResolutionSelector#PREFER_CAPTURE_RATE_OVER_HIGHER_RESOLUTION}.
          */
-        @NonNull
-        public Builder setAllowedResolutionMode(@AllowedResolutionMode int mode) {
+        public @NonNull Builder setAllowedResolutionMode(@AllowedResolutionMode int mode) {
             mAllowedResolutionMode = mode;
             return this;
         }
@@ -267,8 +282,7 @@ public final class ResolutionSelector {
          * Builds the resolution selector. This will create a resolution selector that can be
          * used to select the desired resolution for the captured image.
          */
-        @NonNull
-        public ResolutionSelector build() {
+        public @NonNull ResolutionSelector build() {
             return new ResolutionSelector(mAspectRatioStrategy, mResolutionStrategy,
                     mResolutionFilter, mAllowedResolutionMode);
         }

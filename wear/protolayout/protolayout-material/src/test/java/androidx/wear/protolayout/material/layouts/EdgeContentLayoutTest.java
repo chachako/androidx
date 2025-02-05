@@ -18,12 +18,12 @@ package androidx.wear.protolayout.material.layouts;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.content.Context;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.wear.protolayout.DeviceParametersBuilders.DeviceParameters;
@@ -35,6 +35,8 @@ import androidx.wear.protolayout.ModifiersBuilders.Modifiers;
 import androidx.wear.protolayout.material.CircularProgressIndicator;
 import androidx.wear.protolayout.material.Text;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.internal.DoNotInstrument;
@@ -63,6 +65,27 @@ public class EdgeContentLayoutTest {
                         .build();
 
         assertLayout(layout, progressIndicator, content, PRIMARY_LABEL, SECONDARY_LABEL);
+        assertThat(layout.isEdgeContentBehindAllOtherContent()).isFalse();
+        assertThat(layout.isResponsiveContentInsetEnabled()).isFalse();
+    }
+
+    @Test
+    public void testAllBehind() {
+        LayoutElement content = new Box.Builder().build();
+        CircularProgressIndicator progressIndicator =
+                new CircularProgressIndicator.Builder().build();
+        EdgeContentLayout layout =
+                new EdgeContentLayout.Builder(DEVICE_PARAMETERS)
+                        .setEdgeContentBehindAllOtherContent(true)
+                        .setContent(content)
+                        .setEdgeContent(progressIndicator)
+                        .setPrimaryLabelTextContent(PRIMARY_LABEL)
+                        .setSecondaryLabelTextContent(SECONDARY_LABEL)
+                        .build();
+
+        assertLayout(layout, progressIndicator, content, PRIMARY_LABEL, SECONDARY_LABEL);
+        assertThat(layout.isEdgeContentBehindAllOtherContent()).isTrue();
+        assertThat(layout.isResponsiveContentInsetEnabled()).isFalse();
     }
 
     @Test
@@ -72,6 +95,8 @@ public class EdgeContentLayoutTest {
                 new EdgeContentLayout.Builder(DEVICE_PARAMETERS).setContent(content).build();
 
         assertLayout(layout, null, content, null, null);
+        assertThat(layout.isEdgeContentBehindAllOtherContent()).isFalse();
+        assertThat(layout.isResponsiveContentInsetEnabled()).isFalse();
     }
 
     @Test
@@ -84,6 +109,8 @@ public class EdgeContentLayoutTest {
                         .build();
 
         assertLayout(layout, progressIndicator, null, null, null);
+        assertThat(layout.isEdgeContentBehindAllOtherContent()).isFalse();
+        assertThat(layout.isResponsiveContentInsetEnabled()).isFalse();
     }
 
     @Test
@@ -91,6 +118,129 @@ public class EdgeContentLayoutTest {
         EdgeContentLayout layout = new EdgeContentLayout.Builder(DEVICE_PARAMETERS).build();
 
         assertLayout(layout, null, null, null, null);
+        assertThat(layout.isEdgeContentBehindAllOtherContent()).isFalse();
+        assertThat(layout.isResponsiveContentInsetEnabled()).isFalse();
+    }
+
+    // Responsive test cases with behaviour with using setResponsiveContentInsetEnabled. They are
+    // repeated because the organization of elements inside of the layout is different then without
+    // this setter.
+
+    @Test
+    public void testAll_responsive() {
+        LayoutElement content = new Box.Builder().build();
+        CircularProgressIndicator progressIndicator =
+                new CircularProgressIndicator.Builder().build();
+        int edgeContentThickness = 20;
+        EdgeContentLayout layout =
+                new EdgeContentLayout.Builder(DEVICE_PARAMETERS)
+                        .setResponsiveContentInsetEnabled(true)
+                        .setContent(content)
+                        .setEdgeContent(progressIndicator)
+                        .setPrimaryLabelTextContent(PRIMARY_LABEL)
+                        .setSecondaryLabelTextContent(SECONDARY_LABEL)
+                        .setEdgeContentThickness(edgeContentThickness)
+                        .build();
+
+        assertLayout(
+                layout,
+                progressIndicator,
+                content,
+                PRIMARY_LABEL,
+                SECONDARY_LABEL);
+
+        assertThat(layout.getEdgeContentThickness()).isEqualTo(edgeContentThickness);
+        assertThat(layout.isEdgeContentBehindAllOtherContent()).isTrue();
+        assertThat(layout.isResponsiveContentInsetEnabled()).isTrue();
+    }
+
+    @Test
+    public void testAll_defaultThickness_responsive() {
+        LayoutElement content = new Box.Builder().build();
+        CircularProgressIndicator progressIndicator =
+                new CircularProgressIndicator.Builder().build();
+        EdgeContentLayout layout =
+                new EdgeContentLayout.Builder(DEVICE_PARAMETERS)
+                        .setResponsiveContentInsetEnabled(true)
+                        .setContent(content)
+                        .setEdgeContent(progressIndicator)
+                        .setPrimaryLabelTextContent(PRIMARY_LABEL)
+                        .setSecondaryLabelTextContent(SECONDARY_LABEL)
+                        .build();
+
+        assertLayout(
+                layout,
+                progressIndicator,
+                content,
+                PRIMARY_LABEL,
+                SECONDARY_LABEL);
+
+        assertThat(layout.getEdgeContentThickness())
+                .isEqualTo(progressIndicator.getStrokeWidth().getValue());
+        assertThat(layout.isEdgeContentBehindAllOtherContent()).isTrue();
+        assertThat(layout.isResponsiveContentInsetEnabled()).isTrue();
+    }
+
+    @Test
+    public void testContentOnly_responsive() {
+        LayoutElement content = new Box.Builder().build();
+        EdgeContentLayout layout =
+                new EdgeContentLayout.Builder(DEVICE_PARAMETERS)
+                        .setResponsiveContentInsetEnabled(true)
+                        .setContent(content)
+                        .build();
+
+        assertLayout(
+                layout,
+                /* expectedProgressIndicator= */ null,
+                content,
+                /* expectedPrimaryLabel= */ null,
+                /* expectedSecondaryLabel= */ null);
+
+        assertThat(layout.getEdgeContentThickness()).isEqualTo(0);
+        assertThat(layout.isEdgeContentBehindAllOtherContent()).isTrue();
+        assertThat(layout.isResponsiveContentInsetEnabled()).isTrue();
+    }
+
+    @Test
+    public void testIndicatorOnly_responsive() {
+        CircularProgressIndicator progressIndicator =
+                new CircularProgressIndicator.Builder().build();
+        EdgeContentLayout layout =
+                new EdgeContentLayout.Builder(DEVICE_PARAMETERS)
+                        .setResponsiveContentInsetEnabled(true)
+                        .setEdgeContent(progressIndicator)
+                        .build();
+
+        assertLayout(
+                layout,
+                progressIndicator,
+                /* expectedContent= */ null,
+                /* expectedPrimaryLabel= */ null,
+                /* expectedSecondaryLabel= */ null);
+
+        assertThat(layout.getEdgeContentThickness())
+                .isEqualTo(progressIndicator.getStrokeWidth().getValue());
+        assertThat(layout.isEdgeContentBehindAllOtherContent()).isTrue();
+        assertThat(layout.isResponsiveContentInsetEnabled()).isTrue();
+    }
+
+    @Test
+    public void testEmpty_responsive() {
+        EdgeContentLayout layout = new EdgeContentLayout.Builder(DEVICE_PARAMETERS)
+                .setResponsiveContentInsetEnabled(true)
+                .build();
+
+        assertLayout(
+                layout,
+                /* expectedProgressIndicator= */ null,
+                /* expectedContent= */ null,
+                /* expectedPrimaryLabel= */ null,
+                /* expectedSecondaryLabel= */ null);
+
+        assertThat(layout.getEdgeContentThickness()).isEqualTo(0);
+        assertThat(layout.isEdgeContentBehindAllOtherContent()).isTrue();
+        assertThat(layout.isResponsiveContentInsetEnabled()).isTrue();
     }
 
     @Test
@@ -140,6 +290,46 @@ public class EdgeContentLayoutTest {
                         .build();
 
         assertThat(EdgeContentLayout.fromLayoutElement(box)).isNull();
+    }
+
+    @Test
+    public void testResponsiveAndAboveContentSettersMixed() {
+        EdgeContentLayout.Builder builder =
+                new EdgeContentLayout.Builder(DEVICE_PARAMETERS)
+                        .setResponsiveContentInsetEnabled(true);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> builder.setEdgeContentBehindAllOtherContent(false));
+    }
+
+    @Test
+    public void testResponsiveAndBehindContentSettersMixed() {
+        // This shouldn't throw.
+        new EdgeContentLayout.Builder(DEVICE_PARAMETERS)
+                .setResponsiveContentInsetEnabled(true)
+                // This is fine as it's set to true.
+                .setEdgeContentBehindAllOtherContent(true)
+                .build();
+    }
+
+    @Test
+    public void testBehindContentAndResponsiveSettersMixed() {
+        EdgeContentLayout.Builder builder =
+                new EdgeContentLayout.Builder(DEVICE_PARAMETERS)
+                        .setEdgeContentBehindAllOtherContent(false);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> builder.setResponsiveContentInsetEnabled(true));
+    }
+
+    @Test
+    public void testAboveContentAndResponsiveSettersMixed() {
+        // This shouldn't throw.
+        new EdgeContentLayout.Builder(DEVICE_PARAMETERS)
+                .setEdgeContentBehindAllOtherContent(true)
+                .setResponsiveContentInsetEnabled(true);
     }
 
     private void assertLayout(
@@ -222,6 +412,23 @@ public class EdgeContentLayoutTest {
                                     | EdgeContentLayout.SECONDARY_LABEL_PRESENT);
         }
 
-        assertThat(actualLayout.getMetadataTag()).isEqualTo(expectedMetadata);
+        // Reset bit for edge content position. If that bit is wrong, the above checks around
+        // content will fail, so we don't need to specifically check it here.
+        resetEdgeContentPositionAndResponsiveFlag(expectedMetadata);
+        byte[] actualMetadata = actualLayout.getMetadataTag();
+        resetEdgeContentPositionAndResponsiveFlag(actualMetadata);
+
+        assertThat(actualMetadata).isEqualTo(expectedMetadata);
+    }
+
+    private static void resetEdgeContentPositionAndResponsiveFlag(byte[] expectedMetadata) {
+        expectedMetadata[EdgeContentLayout.FLAG_INDEX] =
+                (byte)
+                        (expectedMetadata[EdgeContentLayout.FLAG_INDEX]
+                                & ~EdgeContentLayout.EDGE_CONTENT_POSITION);
+        expectedMetadata[EdgeContentLayout.FLAG_INDEX] =
+                (byte)
+                        (expectedMetadata[EdgeContentLayout.FLAG_INDEX]
+                                & ~EdgeContentLayout.CONTENT_INSET_USED);
     }
 }

@@ -22,34 +22,48 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 
 val pageColor = Color.Black
 
-@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun App() {
-    var selectedTab by remember { mutableStateOf(Navigation.FeaturedCarousel) }
+    val navController = rememberNavController()
+    val initialSelectedTab = Navigation.StandardNavigationDrawer
 
     MaterialTheme(colorScheme = darkColorScheme()) {
         Column(
-            modifier = Modifier
-                .background(pageColor)
-                .fillMaxSize()
-                .padding(20.dp),
+            modifier = Modifier.background(pageColor).fillMaxSize().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            TopNavigation(updateSelectedTab = { selectedTab = it })
-            selectedTab.action.invoke()
+            TopNavigation(
+                initialSelectedTab = initialSelectedTab,
+                updateSelectedTab = {
+                    if (it.toRouteValue() != navController.currentDestination?.route) {
+                        navController.navigate(it.toRouteValue()) {
+                            popUpTo(initialSelectedTab.toRouteValue()) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                }
+            )
+
+            NavHost(
+                navController = navController,
+                startDestination = initialSelectedTab.toRouteValue()
+            ) {
+                Navigation.values().forEach { routeNavigation ->
+                    composable(routeNavigation.toRouteValue()) { routeNavigation.action() }
+                }
+            }
         }
     }
 }

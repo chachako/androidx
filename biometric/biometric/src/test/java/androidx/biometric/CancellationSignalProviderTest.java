@@ -22,16 +22,14 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import android.os.Build;
-
-import androidx.annotation.NonNull;
-import androidx.test.filters.SdkSuppress;
-
+import org.jspecify.annotations.NonNull;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.internal.DoNotInstrument;
@@ -39,50 +37,43 @@ import org.robolectric.annotation.internal.DoNotInstrument;
 @RunWith(RobolectricTestRunner.class)
 @Config(instrumentedPackages = { "androidx.core.os" })
 @DoNotInstrument
-@SdkSuppress(minSdkVersion = 16)
 public class CancellationSignalProviderTest {
+    @Rule
+    public final MockitoRule mocks = MockitoJUnit.rule();
     @Mock private android.os.CancellationSignal mBiometricCancellationSignal;
     @Mock private androidx.core.os.CancellationSignal mFingerprintCancellationSignal;
 
     private CancellationSignalProvider.Injector mFieldMockInjector;
     private CancellationSignalProvider.Injector mNewMockInjector;
 
-    @SuppressWarnings("deprecation") // b/251211046
     @Before
     public void setUp() {
-        MockitoAnnotations.initMocks(this);
-
         mFieldMockInjector = new CancellationSignalProvider.Injector() {
             @Override
-            @NonNull
-            public android.os.CancellationSignal getBiometricCancellationSignal() {
+            public android.os.@NonNull CancellationSignal getBiometricCancellationSignal() {
                 return mBiometricCancellationSignal;
             }
 
             @Override
-            @NonNull
-            public androidx.core.os.CancellationSignal getFingerprintCancellationSignal() {
+            public androidx.core.os.@NonNull CancellationSignal getFingerprintCancellationSignal() {
                 return mFingerprintCancellationSignal;
             }
         };
 
         mNewMockInjector = new CancellationSignalProvider.Injector() {
             @Override
-            @NonNull
-            public android.os.CancellationSignal getBiometricCancellationSignal() {
+            public android.os.@NonNull CancellationSignal getBiometricCancellationSignal() {
                 return mock(android.os.CancellationSignal.class);
             }
 
             @Override
-            @NonNull
-            public androidx.core.os.CancellationSignal getFingerprintCancellationSignal() {
+            public androidx.core.os.@NonNull CancellationSignal getFingerprintCancellationSignal() {
                 return mock(androidx.core.os.CancellationSignal.class);
             }
         };
     }
 
     @Test
-    @Config(minSdk = Build.VERSION_CODES.JELLY_BEAN)
     public void testBiometricCancellationSignal_IsCached() {
         final CancellationSignalProvider provider = new CancellationSignalProvider();
         final android.os.CancellationSignal cancellationSignal =
@@ -91,7 +82,6 @@ public class CancellationSignalProviderTest {
     }
 
     @Test
-    @Config(minSdk = Build.VERSION_CODES.JELLY_BEAN)
     public void testBiometricCancellationSignal_ReceivesCancel() {
         final CancellationSignalProvider provider =
                 new CancellationSignalProvider(mFieldMockInjector);
@@ -126,7 +116,6 @@ public class CancellationSignalProviderTest {
     }
 
     @Test
-    @Config(minSdk = Build.VERSION_CODES.JELLY_BEAN)
     public void testBothCancellationSignals_ReceiveCancel() {
         final CancellationSignalProvider provider =
                 new CancellationSignalProvider(mFieldMockInjector);

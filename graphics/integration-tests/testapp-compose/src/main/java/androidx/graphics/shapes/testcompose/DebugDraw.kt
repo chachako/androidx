@@ -16,54 +16,141 @@
 
 package androidx.graphics.shapes.testcompose
 
-import android.graphics.Path
-import android.graphics.PointF
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import androidx.graphics.shapes.Cubic
-import androidx.graphics.shapes.CubicShape
-import androidx.graphics.shapes.Morph
+import androidx.graphics.shapes.Feature
+import kotlin.math.roundToInt
 
-internal fun DrawScope.debugDraw(morph: Morph) = debugDraw(morph.asCubics(), morph.asPath())
+internal fun DrawScope.debugDrawCubic(bezier: Cubic, scheme: ColorScheme) {
+    // Draw red circles for start and end.
+    drawCircle(scheme.inverseSurface, radius = 6f, center = bezier.anchor0(), style = Stroke(2f))
+    drawCircle(scheme.inverseSurface, radius = 8f, center = bezier.anchor1(), style = Stroke(2f))
 
-internal fun DrawScope.debugDraw(cubicShape: CubicShape) =
-    debugDraw(cubicShape.cubics, cubicShape.toPath())
+    // Draw a circle for the first control point, and a line from start to it.
+    // The curve will start in this direction
+    drawLine(scheme.scrim, bezier.anchor0(), bezier.control0(), strokeWidth = 0f)
+    drawCircle(scheme.scrim, radius = 4f, center = bezier.control0(), style = Stroke(2f))
 
-internal fun DrawScope.debugDraw(cubics: List<Cubic>, path: Path) {
-    drawPath(path.asComposePath(), Color.Green, style = Stroke(2f))
+    // Draw a circle for the second control point, and a line from it to the end.
+    // The curve will end in this direction
+    drawLine(scheme.scrim, bezier.control1(), bezier.anchor1(), strokeWidth = 0f)
+    drawCircle(scheme.scrim, radius = 4f, center = bezier.control1(), style = Stroke(2f))
 
-    for (bezier in cubics) {
-        // Draw red circles for start and end.
-        drawCircle(bezier.p0, 6f, Color.Red, strokeWidth = 2f)
-        drawCircle(bezier.p3, 8f, Color.Magenta, strokeWidth = 2f)
-        // Draw a circle for the first control point, and a line from start to it.
-        // The curve will start in this direction
-
-        drawLine(bezier.p0, bezier.p1, Color.Yellow, strokeWidth = 0f)
-        drawCircle(bezier.p1, 4f, Color.Yellow, strokeWidth = 2f)
-        // Draw a circle for the second control point, and a line from it to the end.
-        // The curve will end in this direction
-        drawLine(bezier.p2, bezier.p3, Color.Yellow, strokeWidth = 0f)
-        drawCircle(bezier.p2, 4f, Color.Yellow, strokeWidth = 2f)
+    // Draw dots along each curve
+    var t = .1f
+    while (t < 1f) {
+        drawCircle(scheme.primary, radius = 2f, center = bezier.pointOnCurve(t), style = Stroke(2f))
+        t += .1f
     }
 }
 
-/**
- * Utility extension functions to bridge OffsetF as points to Compose's Offsets.
- */
-private fun PointF.asOffset() = Offset(x, y)
-
-private fun DrawScope.drawCircle(
-    center: PointF,
-    radius: Float,
-    color: Color,
-    strokeWidth: Float = 2f
+internal fun DrawScope.debugDrawFeature(
+    feature: Feature,
+    colorScheme: FeatureColorScheme,
+    backgroundColor: Color,
+    radius: Float
 ) {
-    drawCircle(color, radius, center.asOffset(), style = Stroke(strokeWidth))
+    val color = featureToColor(feature, colorScheme)
+    val representativePoint = featureRepresentativePoint(feature)
+
+    // Draw a clickable circle for the representative Point
+    drawCircle(color, radius = radius, center = representativePoint, style = Fill)
+
+    // With a bit of a background to suggest tapping is possible
+    drawCircle(
+        color.copy(0.2f),
+        radius = radius + (radius * 0.6f),
+        center = representativePoint,
+        style = Fill
+    )
+
+    // Finally add a border around the representative point
+    drawCircle(
+        backgroundColor,
+        radius = radius,
+        center = representativePoint,
+        style = Stroke(radius / 4)
+    )
 }
-private fun DrawScope.drawLine(start: PointF, end: PointF, color: Color, strokeWidth: Float = 2f) {
-    drawLine(color, start.asOffset(), end.asOffset(), strokeWidth = strokeWidth)
+
+@Composable
+internal fun FeatureRepresentativePoint(
+    modifier: Modifier = Modifier,
+    feature: Feature,
+    colorScheme: FeatureColorScheme,
+    backgroundColor: Color,
+    model: PanZoomRotateBoxState = PanZoomRotateBoxState(),
+    pointSize: Dp = 15.dp,
+    onClick: () -> Unit,
+) {
+    val radius = with(LocalDensity.current) { (pointSize / 2).roundToPx() }
+    val position = model.mapOut(featureRepresentativePoint(feature))
+
+    Box(
+        modifier
+            .offset {
+                IntOffset(
+                    (position.x).roundToInt(),
+                    (position.y).roundToInt(),
+                )
+            }
+            .drawWithContent {
+                drawContent()
+                debugDrawFeature(feature, colorScheme, backgroundColor, radius.toFloat())
+            }
+    )
+
+    Box(
+        modifier
+            .offset {
+                IntOffset(
+                    (position.x - CLICKABLE_SCALE * radius).roundToInt(),
+                    (position.y - CLICKABLE_SCALE * radius).roundToInt(),
+                )
+            }
+            .size(pointSize * CLICKABLE_SCALE)
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+    )
 }
+
+internal fun featureToColor(feature: Feature, scheme: FeatureColorScheme): Color =
+    if (feature.isEdge) {
+        scheme.edgeColor
+    } else if (feature.isConvexCorner) {
+        scheme.convexColor
+    } else {
+        scheme.concaveColor
+    }
+
+// TODO: b/378441547 - Remove if explicit / exposed by default
+internal fun featureRepresentativePoint(feature: Feature): Offset =
+    (feature.cubics.first().anchor0() + feature.cubics.last().anchor1()) / 2f
+
+internal fun Cubic.anchor0() = Offset(anchor0X, anchor0Y)
+
+internal fun Cubic.control0() = Offset(control0X, control0Y)
+
+internal fun Cubic.control1() = Offset(control1X, control1Y)
+
+internal fun Cubic.anchor1() = Offset(anchor1X, anchor1Y)
+
+internal const val CLICKABLE_SCALE = 1.8f

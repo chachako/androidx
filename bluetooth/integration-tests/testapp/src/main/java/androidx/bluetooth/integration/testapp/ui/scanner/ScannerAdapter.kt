@@ -16,66 +16,57 @@
 
 package androidx.bluetooth.integration.testapp.ui.scanner
 
-import android.annotation.SuppressLint
-import android.bluetooth.le.ScanResult
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
-
+import androidx.bluetooth.BluetoothDevice
+import androidx.bluetooth.ScanResult
 import androidx.bluetooth.integration.testapp.R
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 
-class ScannerAdapter(private val onClick: (ScanResult) -> Unit) :
+class ScannerAdapter(private val onClick: (BluetoothDevice) -> Unit) :
     ListAdapter<ScanResult, ScannerAdapter.ViewHolder>(ScannerDiffCallback) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_scan_result, parent, false)
-        return ViewHolder(view, onClick)
+        val view =
+            LayoutInflater.from(parent.context).inflate(R.layout.item_scan_result, parent, false)
+        return ViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val scanResult = getItem(position)
-        holder.bind(scanResult)
+        holder.bind(getItem(position).device)
     }
 
-    inner class ViewHolder(itemView: View, private val onClick: (ScanResult) -> Unit) :
-        RecyclerView.ViewHolder(itemView) {
+    inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
 
+        private val textViewDeviceId: TextView = itemView.findViewById(R.id.text_view_device_id)
         private val textViewDeviceName: TextView = itemView.findViewById(R.id.text_view_device_name)
-        private val textViewDeviceAddress: TextView =
-            itemView.findViewById(R.id.text_view_device_address)
         private val buttonConnect: Button = itemView.findViewById(R.id.button_connect)
 
-        private var currentScanResult: ScanResult? = null
-
         init {
-            buttonConnect.setOnClickListener {
-                currentScanResult?.let(onClick)
-            }
+            buttonConnect.setOnClickListener { onClick(getItem(bindingAdapterPosition).device) }
         }
 
-        @SuppressLint("MissingPermission")
-        fun bind(scanResult: ScanResult) {
-            currentScanResult = scanResult
-            textViewDeviceAddress.text = scanResult.device.address
-            textViewDeviceName.text = scanResult.device.name
-            textViewDeviceName.isVisible = scanResult.device.name.isNullOrEmpty().not()
+        fun bind(bluetoothDevice: BluetoothDevice) {
+            textViewDeviceId.text = bluetoothDevice.id.toString()
+            textViewDeviceName.text = bluetoothDevice.name
+            textViewDeviceName.isVisible = bluetoothDevice.name.isNullOrEmpty().not()
         }
     }
 }
 
 object ScannerDiffCallback : DiffUtil.ItemCallback<ScanResult>() {
     override fun areItemsTheSame(oldItem: ScanResult, newItem: ScanResult): Boolean {
-        return oldItem == newItem
+        return oldItem.device.id == newItem.device.id
     }
 
     override fun areContentsTheSame(oldItem: ScanResult, newItem: ScanResult): Boolean {
-        return oldItem.device == newItem.device
+        return oldItem.device.id == newItem.device.id &&
+            oldItem.timestampNanos == newItem.timestampNanos
     }
 }

@@ -16,8 +16,12 @@
 
 package androidx.wear.tiles.checkers
 
+import androidx.wear.protolayout.LayoutElementBuilders
+import androidx.wear.protolayout.TimelineBuilders
 import androidx.wear.tiles.TilesTestRunner
 import com.google.common.truth.Truth.assertThat
+import org.junit.Test
+import org.junit.runner.RunWith
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.doReturn
@@ -25,34 +29,27 @@ import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
-import org.junit.Test
-import org.junit.runner.RunWith
 
 @RunWith(TilesTestRunner::class)
 class TimelineCheckerTest {
-    @Suppress("deprecation") // TODO(b/276343540): Use protolayout types
     @Test
     fun doCheck_callsAllCheckersOnSuccess() {
-        val mockChecker1 = mock<TimelineEntryChecker> {
-            on { name } doReturn "MockChecker1"
-        }
+        val mockChecker1 = mock<TimelineEntryChecker> { on { name } doReturn "MockChecker1" }
 
-        val mockChecker2 = mock<TimelineEntryChecker> {
-            on { name } doReturn "MockChecker2"
-        }
+        val mockChecker2 = mock<TimelineEntryChecker> { on { name } doReturn "MockChecker2" }
 
         val checker = TimelineChecker(listOf(mockChecker1, mockChecker2))
         val timeline = buildTimeline()
         checker.doCheck(timeline)
 
-        argumentCaptor<androidx.wear.tiles.TimelineBuilders.TimelineEntry>().apply {
+        argumentCaptor<TimelineBuilders.TimelineEntry>().apply {
             verify(mockChecker1, times(2)).check(capture())
 
             assertThat(firstValue.toProto()).isEqualTo(timeline.timelineEntries[0].toProto())
             assertThat(secondValue.toProto()).isEqualTo(timeline.timelineEntries[1].toProto())
         }
 
-        argumentCaptor<androidx.wear.tiles.TimelineBuilders.TimelineEntry>().apply {
+        argumentCaptor<TimelineBuilders.TimelineEntry>().apply {
             verify(mockChecker2, times(2)).check(capture())
 
             assertThat(firstValue.toProto()).isEqualTo(timeline.timelineEntries[0].toProto())
@@ -60,32 +57,33 @@ class TimelineCheckerTest {
         }
     }
 
-    @Suppress("deprecation") // TODO(b/276343540): Use protolayout types
     @Test
     fun doCheck_callsAllCheckersOnFailure() {
-        val mockChecker1 = mock<TimelineEntryChecker> {
-            on { name } doReturn "MockChecker1"
-            on { check(any()) } doThrow CheckerException("Invalid...")
-        }
+        val mockChecker1 =
+            mock<TimelineEntryChecker> {
+                on { name } doReturn "MockChecker1"
+                on { check(any()) } doThrow CheckerException("Invalid...")
+            }
 
-        val mockChecker2 = mock<TimelineEntryChecker> {
-            on { name } doReturn "MockChecker2"
-            on { check(any()) } doThrow CheckerException("Invalid...")
-        }
+        val mockChecker2 =
+            mock<TimelineEntryChecker> {
+                on { name } doReturn "MockChecker2"
+                on { check(any()) } doThrow CheckerException("Invalid...")
+            }
 
         val checker = TimelineChecker(listOf(mockChecker1, mockChecker2))
         val timeline = buildTimeline()
         checker.doCheck(timeline)
 
         // Even on failure, it should still work through everything...
-        argumentCaptor<androidx.wear.tiles.TimelineBuilders.TimelineEntry>().apply {
+        argumentCaptor<TimelineBuilders.TimelineEntry>().apply {
             verify(mockChecker1, times(2)).check(capture())
 
             assertThat(firstValue.toProto()).isEqualTo(timeline.timelineEntries[0].toProto())
             assertThat(secondValue.toProto()).isEqualTo(timeline.timelineEntries[1].toProto())
         }
 
-        argumentCaptor<androidx.wear.tiles.TimelineBuilders.TimelineEntry>().apply {
+        argumentCaptor<TimelineBuilders.TimelineEntry>().apply {
             verify(mockChecker2, times(2)).check(capture())
 
             assertThat(firstValue.toProto()).isEqualTo(timeline.timelineEntries[0].toProto())
@@ -93,23 +91,25 @@ class TimelineCheckerTest {
         }
     }
 
-    @Suppress("deprecation") // TODO(b/276343540): Use protolayout types
     private fun buildTimeline() =
-        androidx.wear.tiles.TimelineBuilders.Timeline.Builder().addTimelineEntry(
-            androidx.wear.tiles.TimelineBuilders.TimelineEntry.Builder().setLayout(
-                androidx.wear.tiles.LayoutElementBuilders.Layout.Builder().setRoot(
-                    androidx.wear.tiles.LayoutElementBuilders.Text.Builder()
-                        .setText("Hello")
-                        .build()
-                ).build()
-            ).build()
-        ).addTimelineEntry(
-            androidx.wear.tiles.TimelineBuilders.TimelineEntry.Builder().setLayout(
-                androidx.wear.tiles.LayoutElementBuilders.Layout.Builder().setRoot(
-                    androidx.wear.tiles.LayoutElementBuilders.Text.Builder()
-                        .setText("World")
-                        .build()
-                ).build()
-            ).build()
-        ).build()
+        TimelineBuilders.Timeline.Builder()
+            .addTimelineEntry(
+                TimelineBuilders.TimelineEntry.Builder()
+                    .setLayout(
+                        LayoutElementBuilders.Layout.Builder()
+                            .setRoot(LayoutElementBuilders.Text.Builder().setText("Hello").build())
+                            .build()
+                    )
+                    .build()
+            )
+            .addTimelineEntry(
+                TimelineBuilders.TimelineEntry.Builder()
+                    .setLayout(
+                        LayoutElementBuilders.Layout.Builder()
+                            .setRoot(LayoutElementBuilders.Text.Builder().setText("World").build())
+                            .build()
+                    )
+                    .build()
+            )
+            .build()
 }

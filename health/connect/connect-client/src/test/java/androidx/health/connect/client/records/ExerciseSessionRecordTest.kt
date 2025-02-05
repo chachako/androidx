@@ -22,6 +22,9 @@ import androidx.health.connect.client.records.ExerciseSessionRecord.Companion.EX
 import androidx.health.connect.client.records.ExerciseSessionRecord.Companion.EXERCISE_TYPE_INT_TO_STRING_MAP
 import androidx.health.connect.client.records.ExerciseSessionRecord.Companion.EXERCISE_TYPE_STRENGTH_TRAINING
 import androidx.health.connect.client.records.ExerciseSessionRecord.Companion.EXERCISE_TYPE_STRING_TO_INT_MAP
+import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.records.metadata.Metadata.Companion.RECORDING_METHOD_MANUAL_ENTRY
+import androidx.health.connect.client.records.metadata.Metadata.Companion.RECORDING_METHOD_UNKNOWN
 import androidx.health.connect.client.units.meters
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
@@ -37,81 +40,185 @@ class ExerciseSessionRecordTest {
     @Test
     fun validRecord_equals() {
         assertThat(
-            ExerciseSessionRecord(
-                startTime = Instant.ofEpochMilli(1234L),
-                startZoneOffset = null,
-                endTime = Instant.ofEpochMilli(1236L),
-                endZoneOffset = null,
-                exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_BIKING,
-                title = "title",
-                notes = "notes",
-                segments = listOf(
-                    ExerciseSegment(
-                        startTime = Instant.ofEpochMilli(1234L),
-                        endTime = Instant.ofEpochMilli(1235L),
-                        segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
-                    )
-                ),
-                laps = listOf(
-                    ExerciseLap(
-                        startTime = Instant.ofEpochMilli(1235L),
-                        endTime = Instant.ofEpochMilli(1236L),
-                        length = 10.meters,
-                    )
-                ),
-                route = ExerciseRoute(
-                    route = listOf(
-                        ExerciseRoute.Location(
-                            time = Instant.ofEpochMilli(1234L),
-                            latitude = 34.5,
-                            longitude = -34.5,
-                            horizontalAccuracy = 0.4.meters,
-                            verticalAccuracy = 1.3.meters,
-                            altitude = 23.4.meters
-                        )
-                    )
-                ),
-                hasRoute = true,
+                ExerciseSessionRecord(
+                    startTime = Instant.ofEpochMilli(1234L),
+                    startZoneOffset = null,
+                    endTime = Instant.ofEpochMilli(1236L),
+                    endZoneOffset = null,
+                    metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
+                    exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_BIKING,
+                    title = "title",
+                    notes = "notes",
+                    segments =
+                        listOf(
+                            ExerciseSegment(
+                                startTime = Instant.ofEpochMilli(1234L),
+                                endTime = Instant.ofEpochMilli(1235L),
+                                segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                            )
+                        ),
+                    laps =
+                        listOf(
+                            ExerciseLap(
+                                startTime = Instant.ofEpochMilli(1235L),
+                                endTime = Instant.ofEpochMilli(1236L),
+                                length = 10.meters,
+                            )
+                        ),
+                    exerciseRoute =
+                        ExerciseRoute(
+                            route =
+                                listOf(
+                                    ExerciseRoute.Location(
+                                        time = Instant.ofEpochMilli(1234L),
+                                        latitude = 34.5,
+                                        longitude = -34.5,
+                                        horizontalAccuracy = 0.4.meters,
+                                        verticalAccuracy = 1.3.meters,
+                                        altitude = 23.4.meters
+                                    )
+                                )
+                        ),
+                )
             )
-        )
             .isEqualTo(
                 ExerciseSessionRecord(
                     startTime = Instant.ofEpochMilli(1234L),
                     startZoneOffset = null,
                     endTime = Instant.ofEpochMilli(1236L),
                     endZoneOffset = null,
+                    metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
                     exerciseType = EXERCISE_TYPE_BIKING,
                     title = "title",
                     notes = "notes",
-                    segments = listOf(
+                    segments =
+                        listOf(
+                            ExerciseSegment(
+                                startTime = Instant.ofEpochMilli(1234L),
+                                endTime = Instant.ofEpochMilli(1235L),
+                                segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                            )
+                        ),
+                    laps =
+                        listOf(
+                            ExerciseLap(
+                                startTime = Instant.ofEpochMilli(1235L),
+                                endTime = Instant.ofEpochMilli(1236L),
+                                length = 10.meters,
+                            )
+                        ),
+                    exerciseRoute =
+                        ExerciseRoute(
+                            route =
+                                listOf(
+                                    ExerciseRoute.Location(
+                                        time = Instant.ofEpochMilli(1234L),
+                                        latitude = 34.5,
+                                        longitude = -34.5,
+                                        horizontalAccuracy = 0.4.meters,
+                                        verticalAccuracy = 1.3.meters,
+                                        altitude = 23.4.meters
+                                    )
+                                )
+                        ),
+                )
+            )
+    }
+
+    @Test
+    fun validRecord_emptyRoute_equals() {
+        assertThat(
+                ExerciseSessionRecord(
+                    startTime = Instant.ofEpochMilli(1234L),
+                    startZoneOffset = null,
+                    endTime = Instant.ofEpochMilli(1236L),
+                    endZoneOffset = null,
+                    metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
+                    exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_BIKING,
+                    title = "title",
+                    notes = "notes",
+                    segments =
+                        listOf(
+                            ExerciseSegment(
+                                startTime = Instant.ofEpochMilli(1234L),
+                                endTime = Instant.ofEpochMilli(1235L),
+                                segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                            )
+                        ),
+                    laps =
+                        listOf(
+                            ExerciseLap(
+                                startTime = Instant.ofEpochMilli(1235L),
+                                endTime = Instant.ofEpochMilli(1236L),
+                                length = 10.meters,
+                            )
+                        ),
+                    exerciseRoute = ExerciseRoute(route = listOf()),
+                )
+            )
+            .isEqualTo(
+                ExerciseSessionRecord(
+                    startTime = Instant.ofEpochMilli(1234L),
+                    startZoneOffset = null,
+                    endTime = Instant.ofEpochMilli(1236L),
+                    endZoneOffset = null,
+                    metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
+                    exerciseType = EXERCISE_TYPE_BIKING,
+                    title = "title",
+                    notes = "notes",
+                    segments =
+                        listOf(
+                            ExerciseSegment(
+                                startTime = Instant.ofEpochMilli(1234L),
+                                endTime = Instant.ofEpochMilli(1235L),
+                                segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                            )
+                        ),
+                    laps =
+                        listOf(
+                            ExerciseLap(
+                                startTime = Instant.ofEpochMilli(1235L),
+                                endTime = Instant.ofEpochMilli(1236L),
+                                length = 10.meters,
+                            )
+                        ),
+                    exerciseRoute = ExerciseRoute(route = listOf()),
+                )
+            )
+    }
+
+    @Test
+    fun validRecord_emptyRoute_hasExerciseRouteData() {
+        val record =
+            ExerciseSessionRecord(
+                startTime = Instant.ofEpochMilli(1234L),
+                startZoneOffset = null,
+                endTime = Instant.ofEpochMilli(1236L),
+                endZoneOffset = null,
+                metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
+                exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_BIKING,
+                title = "title",
+                notes = "notes",
+                segments =
+                    listOf(
                         ExerciseSegment(
                             startTime = Instant.ofEpochMilli(1234L),
                             endTime = Instant.ofEpochMilli(1235L),
                             segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
                         )
                     ),
-                    laps = listOf(
+                laps =
+                    listOf(
                         ExerciseLap(
                             startTime = Instant.ofEpochMilli(1235L),
                             endTime = Instant.ofEpochMilli(1236L),
                             length = 10.meters,
                         )
                     ),
-                    route = ExerciseRoute(
-                        route = listOf(
-                            ExerciseRoute.Location(
-                                time = Instant.ofEpochMilli(1234L),
-                                latitude = 34.5,
-                                longitude = -34.5,
-                                horizontalAccuracy = 0.4.meters,
-                                verticalAccuracy = 1.3.meters,
-                                altitude = 23.4.meters
-                            )
-                        )
-                    ),
-                    hasRoute = true,
-                )
+                exerciseRoute = ExerciseRoute(route = listOf()),
             )
+        assertThat((record.exerciseRouteResult as ExerciseRouteResult.Data))
+            .isEqualTo(ExerciseRouteResult.Data(ExerciseRoute(listOf())))
     }
 
     @Test
@@ -122,9 +229,11 @@ class ExerciseSessionRecordTest {
                 startZoneOffset = null,
                 endTime = Instant.ofEpochMilli(1234L),
                 endZoneOffset = null,
+                metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
                 exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_EXERCISE_CLASS,
                 title = "title",
                 notes = "notes",
+                exerciseRoute = null,
             )
         }
     }
@@ -165,14 +274,17 @@ class ExerciseSessionRecordTest {
                 startZoneOffset = null,
                 endTime = Instant.ofEpochMilli(1235L),
                 endZoneOffset = null,
+                metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
                 exerciseType = EXERCISE_TYPE_BIKING,
-                segments = listOf(
-                    ExerciseSegment(
-                        startTime = Instant.ofEpochMilli(1233L),
-                        endTime = Instant.ofEpochMilli(1235L),
-                        segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
-                    )
-                )
+                segments =
+                    listOf(
+                        ExerciseSegment(
+                            startTime = Instant.ofEpochMilli(1233L),
+                            endTime = Instant.ofEpochMilli(1235L),
+                            segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                        )
+                    ),
+                exerciseRoute = null,
             )
         }
 
@@ -182,14 +294,17 @@ class ExerciseSessionRecordTest {
                 startZoneOffset = null,
                 endTime = Instant.ofEpochMilli(1235L),
                 endZoneOffset = null,
+                metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
                 exerciseType = EXERCISE_TYPE_BIKING,
-                segments = listOf(
-                    ExerciseSegment(
-                        startTime = Instant.ofEpochMilli(1234L),
-                        endTime = Instant.ofEpochMilli(1236L),
-                        segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
-                    )
-                )
+                segments =
+                    listOf(
+                        ExerciseSegment(
+                            startTime = Instant.ofEpochMilli(1234L),
+                            endTime = Instant.ofEpochMilli(1236L),
+                            segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                        )
+                    ),
+                exerciseRoute = null,
             )
         }
     }
@@ -202,13 +317,16 @@ class ExerciseSessionRecordTest {
                 startZoneOffset = null,
                 endTime = Instant.ofEpochMilli(1235L),
                 endZoneOffset = null,
+                metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
                 exerciseType = EXERCISE_TYPE_BIKING,
-                laps = listOf(
-                    ExerciseLap(
-                        startTime = Instant.ofEpochMilli(1233L),
-                        endTime = Instant.ofEpochMilli(1235L),
-                    )
-                )
+                laps =
+                    listOf(
+                        ExerciseLap(
+                            startTime = Instant.ofEpochMilli(1233L),
+                            endTime = Instant.ofEpochMilli(1235L),
+                        )
+                    ),
+                exerciseRoute = null,
             )
         }
 
@@ -218,13 +336,16 @@ class ExerciseSessionRecordTest {
                 startZoneOffset = null,
                 endTime = Instant.ofEpochMilli(1235L),
                 endZoneOffset = null,
+                metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
                 exerciseType = EXERCISE_TYPE_BIKING,
-                laps = listOf(
-                    ExerciseLap(
-                        startTime = Instant.ofEpochMilli(1234L),
-                        endTime = Instant.ofEpochMilli(1236L),
-                    )
-                )
+                laps =
+                    listOf(
+                        ExerciseLap(
+                            startTime = Instant.ofEpochMilli(1234L),
+                            endTime = Instant.ofEpochMilli(1236L),
+                        )
+                    ),
+                exerciseRoute = null,
             )
         }
     }
@@ -237,16 +358,19 @@ class ExerciseSessionRecordTest {
                 startZoneOffset = null,
                 endTime = Instant.ofEpochMilli(1235L),
                 endZoneOffset = null,
+                metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
                 exerciseType = EXERCISE_TYPE_BIKING,
-                route = ExerciseRoute(
-                    route = listOf(
-                        ExerciseRoute.Location(
-                            time = Instant.ofEpochMilli(1233L),
-                            latitude = 34.5,
-                            longitude = -34.5
-                        )
+                exerciseRoute =
+                    ExerciseRoute(
+                        route =
+                            listOf(
+                                ExerciseRoute.Location(
+                                    time = Instant.ofEpochMilli(1233L),
+                                    latitude = 34.5,
+                                    longitude = -34.5
+                                )
+                            )
                     )
-                )
             )
         }
 
@@ -256,16 +380,19 @@ class ExerciseSessionRecordTest {
                 startZoneOffset = null,
                 endTime = Instant.ofEpochMilli(1235L),
                 endZoneOffset = null,
+                metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
                 exerciseType = EXERCISE_TYPE_BIKING,
-                route = ExerciseRoute(
-                    route = listOf(
-                        ExerciseRoute.Location(
-                            time = Instant.ofEpochMilli(1235L),
-                            latitude = 34.5,
-                            longitude = -34.5
-                        )
+                exerciseRoute =
+                    ExerciseRoute(
+                        route =
+                            listOf(
+                                ExerciseRoute.Location(
+                                    time = Instant.ofEpochMilli(1235L),
+                                    latitude = 34.5,
+                                    longitude = -34.5
+                                )
+                            )
                     )
-                )
             )
         }
     }
@@ -278,19 +405,22 @@ class ExerciseSessionRecordTest {
                 startZoneOffset = null,
                 endTime = Instant.ofEpochMilli(1236L),
                 endZoneOffset = null,
+                metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
                 exerciseType = EXERCISE_TYPE_BIKING,
-                segments = listOf(
-                    ExerciseSegment(
-                        startTime = Instant.ofEpochMilli(1234L),
-                        endTime = Instant.ofEpochMilli(1236L),
-                        segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                segments =
+                    listOf(
+                        ExerciseSegment(
+                            startTime = Instant.ofEpochMilli(1234L),
+                            endTime = Instant.ofEpochMilli(1236L),
+                            segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                        ),
+                        ExerciseSegment(
+                            startTime = Instant.ofEpochMilli(1235L),
+                            endTime = Instant.ofEpochMilli(1236L),
+                            segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                        ),
                     ),
-                    ExerciseSegment(
-                        startTime = Instant.ofEpochMilli(1235L),
-                        endTime = Instant.ofEpochMilli(1236L),
-                        segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
-                    ),
-                )
+                exerciseRoute = null,
             )
         }
     }
@@ -303,17 +433,20 @@ class ExerciseSessionRecordTest {
                 startZoneOffset = null,
                 endTime = Instant.ofEpochMilli(1236L),
                 endZoneOffset = null,
+                metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
                 exerciseType = EXERCISE_TYPE_BIKING,
-                laps = listOf(
-                    ExerciseLap(
-                        startTime = Instant.ofEpochMilli(1234L),
-                        endTime = Instant.ofEpochMilli(1236L),
+                laps =
+                    listOf(
+                        ExerciseLap(
+                            startTime = Instant.ofEpochMilli(1234L),
+                            endTime = Instant.ofEpochMilli(1236L),
+                        ),
+                        ExerciseLap(
+                            startTime = Instant.ofEpochMilli(1235L),
+                            endTime = Instant.ofEpochMilli(1236L),
+                        ),
                     ),
-                    ExerciseLap(
-                        startTime = Instant.ofEpochMilli(1235L),
-                        endTime = Instant.ofEpochMilli(1236L),
-                    ),
-                )
+                exerciseRoute = null,
             )
         }
     }
@@ -326,37 +459,17 @@ class ExerciseSessionRecordTest {
                 startZoneOffset = null,
                 endTime = Instant.ofEpochMilli(1236L),
                 endZoneOffset = null,
+                metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
                 exerciseType = EXERCISE_TYPE_BIKING,
-                segments = listOf(
-                    ExerciseSegment(
-                        startTime = Instant.ofEpochMilli(1234L),
-                        endTime = Instant.ofEpochMilli(1236L),
-                        segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_PLANK
+                segments =
+                    listOf(
+                        ExerciseSegment(
+                            startTime = Instant.ofEpochMilli(1234L),
+                            endTime = Instant.ofEpochMilli(1236L),
+                            segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_PLANK
+                        ),
                     ),
-                )
-            )
-        }
-    }
-
-    @Test
-    fun exerciseRouteSet_hasRouteSetToFalse_throws() {
-        assertFailsWith<IllegalArgumentException> {
-            ExerciseSessionRecord(
-                startTime = Instant.ofEpochMilli(1234L),
-                startZoneOffset = null,
-                endTime = Instant.ofEpochMilli(1236L),
-                endZoneOffset = null,
-                exerciseType = EXERCISE_TYPE_BIKING,
-                route = ExerciseRoute(
-                    route = listOf(
-                        ExerciseRoute.Location(
-                            time = Instant.ofEpochMilli(1235L),
-                            latitude = 34.5,
-                            longitude = -34.5
-                        )
-                    )
-                ),
-                hasRoute = false,
+                exerciseRoute = null,
             )
         }
     }
@@ -364,31 +477,121 @@ class ExerciseSessionRecordTest {
     @Test
     fun secondConstructor_hasRouteSetCorrectly() {
         assertThat(
-            ExerciseSessionRecord(
-                startTime = Instant.ofEpochMilli(1234L),
-                startZoneOffset = null,
-                endTime = Instant.ofEpochMilli(1236L),
-                endZoneOffset = null,
-                exerciseType = EXERCISE_TYPE_BIKING,
-                route = ExerciseRoute(
-                    route = listOf(
-                        ExerciseRoute.Location(
-                            time = Instant.ofEpochMilli(1235L),
-                            latitude = 34.5,
-                            longitude = -34.5
-                        )
+                ExerciseSessionRecord(
+                        startTime = Instant.ofEpochMilli(1234L),
+                        startZoneOffset = null,
+                        endTime = Instant.ofEpochMilli(1236L),
+                        endZoneOffset = null,
+                        metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
+                        exerciseType = EXERCISE_TYPE_BIKING,
+                        exerciseRoute =
+                            ExerciseRoute(
+                                route =
+                                    listOf(
+                                        ExerciseRoute.Location(
+                                            time = Instant.ofEpochMilli(1235L),
+                                            latitude = 34.5,
+                                            longitude = -34.5
+                                        )
+                                    )
+                            ),
                     )
-                ),
-            ).hasRoute
-        ).isTrue()
+                    .exerciseRouteResult
+            )
+            .isEqualTo(
+                ExerciseRouteResult.Data(
+                    ExerciseRoute(
+                        route =
+                            listOf(
+                                ExerciseRoute.Location(
+                                    time = Instant.ofEpochMilli(1235L),
+                                    latitude = 34.5,
+                                    longitude = -34.5
+                                )
+                            )
+                    )
+                )
+            )
         assertThat(
-            ExerciseSessionRecord(
-                startTime = Instant.ofEpochMilli(1234L),
-                startZoneOffset = null,
-                endTime = Instant.ofEpochMilli(1236L),
-                endZoneOffset = null,
-                exerciseType = EXERCISE_TYPE_BIKING,
-            ).hasRoute
-        ).isFalse()
+                ExerciseSessionRecord(
+                        startTime = Instant.ofEpochMilli(1234L),
+                        startZoneOffset = null,
+                        endTime = Instant.ofEpochMilli(1236L),
+                        endZoneOffset = null,
+                        metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
+                        exerciseType = EXERCISE_TYPE_BIKING,
+                        exerciseRoute = null
+                    )
+                    .exerciseRouteResult
+            )
+            .isEqualTo(ExerciseRouteResult.NoData())
+    }
+
+    @Test
+    fun toString_containsMembers() {
+        assertThat(
+                ExerciseSessionRecord(
+                        startTime = Instant.ofEpochMilli(1234L),
+                        startZoneOffset = null,
+                        endTime = Instant.ofEpochMilli(1236L),
+                        endZoneOffset = null,
+                        metadata = Metadata(recordingMethod = RECORDING_METHOD_UNKNOWN),
+                        exerciseType = ExerciseSessionRecord.EXERCISE_TYPE_BIKING,
+                        title = "title",
+                        notes = "notes",
+                        segments =
+                            listOf(
+                                ExerciseSegment(
+                                    startTime = Instant.ofEpochMilli(1234L),
+                                    endTime = Instant.ofEpochMilli(1235L),
+                                    segmentType = ExerciseSegment.EXERCISE_SEGMENT_TYPE_BIKING
+                                )
+                            ),
+                        laps =
+                            listOf(
+                                ExerciseLap(
+                                    startTime = Instant.ofEpochMilli(1235L),
+                                    endTime = Instant.ofEpochMilli(1236L),
+                                    length = 10.meters,
+                                )
+                            ),
+                        exerciseRoute =
+                            ExerciseRoute(
+                                route =
+                                    listOf(
+                                        ExerciseRoute.Location(
+                                            time = Instant.ofEpochMilli(1234L),
+                                            latitude = 34.5,
+                                            longitude = -34.5,
+                                            horizontalAccuracy = 0.4.meters,
+                                            verticalAccuracy = 1.3.meters,
+                                            altitude = 23.4.meters
+                                        )
+                                    )
+                            ),
+                    )
+                    .toString()
+            )
+            .isEqualTo(
+                "ExerciseSessionRecord(startTime=1970-01-01T00:00:01.234Z, startZoneOffset=null, endTime=1970-01-01T00:00:01.236Z, endZoneOffset=null, exerciseType=8, title=title, notes=notes, metadata=Metadata(id='', dataOrigin=DataOrigin(packageName=''), lastModifiedTime=1970-01-01T00:00:00Z, clientRecordId=null, clientRecordVersion=0, device=null, recordingMethod=0), segments=[ExerciseSegment(startTime=1970-01-01T00:00:01.234Z, endTime=1970-01-01T00:00:01.235Z, segmentType=7, repetitions=0)], laps=[ExerciseLap(startTime=1970-01-01T00:00:01.235Z, endTime=1970-01-01T00:00:01.236Z, length=10.0 meters)], exerciseRouteResult=Data(exerciseRoute=ExerciseRoute(route=[Location(time=1970-01-01T00:00:01.234Z, latitude=34.5, longitude=-34.5, horizontalAccuracy=0.4 meters, verticalAccuracy=1.3 meters, altitude=23.4 meters)])))"
+            )
+    }
+
+    @Test
+    fun plannedExercise_fieldCanBeOptionallySet() {
+        assertThat(
+                ExerciseSessionRecord(
+                        startTime = Instant.ofEpochMilli(1234L),
+                        startZoneOffset = null,
+                        endTime = Instant.ofEpochMilli(1236L),
+                        endZoneOffset = null,
+                        metadata = Metadata(recordingMethod = RECORDING_METHOD_MANUAL_ENTRY),
+                        exerciseType = EXERCISE_TYPE_BIKING,
+                        exerciseRoute = null,
+                        plannedExerciseSessionId = "some_id"
+                    )
+                    .plannedExerciseSessionId
+            )
+            .isEqualTo("some_id")
     }
 }

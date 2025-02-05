@@ -16,35 +16,32 @@
 
 package androidx.compose.runtime
 
-import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
+import kotlinx.coroutines.runBlocking
 
 class MonotonicFrameClockTest {
     @ExperimentalComposeApi
     @Test
     fun monotonicFrameClockThrowsWhenAbsent() {
         assertFailsWith<IllegalStateException> {
-            runBlocking {
-                coroutineContext.monotonicFrameClock
-            }
+            runBlocking { coroutineContext.monotonicFrameClock }
         }
     }
 
     @ExperimentalComposeApi
     @Test
     fun monotonicFrameClockReturnsContextClock() {
-        val clock = object : MonotonicFrameClock {
-            override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R {
-                error("not implemented")
+        val clock =
+            object : MonotonicFrameClock {
+                override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R {
+                    error("not implemented")
+                }
             }
-        }
 
-        val result = runBlocking(clock) {
-            coroutineContext.monotonicFrameClock
-        }
+        val result = runBlocking(clock) { coroutineContext.monotonicFrameClock }
 
         assertSame(clock, result)
     }
@@ -62,17 +59,17 @@ class MonotonicFrameClockTest {
 
     @Test
     fun withFrameNanosCallsPresentClock() {
-        val clock = object : MonotonicFrameClock {
-            var callCount = 0
-            override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R {
-                callCount++
-                return onFrame(0)
+        val clock =
+            object : MonotonicFrameClock {
+                var callCount = 0
+
+                override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R {
+                    callCount++
+                    return onFrame(0)
+                }
             }
-        }
         val expected = Any()
-        val result = runBlocking(clock) {
-            withFrameNanos { expected }
-        }
+        val result = runBlocking(clock) { withFrameNanos { expected } }
         assertSame(expected, result, "expected value not returned from withFrameNanos")
         assertEquals(1, clock.callCount, "withFrameNanos did not use supplied clock")
     }

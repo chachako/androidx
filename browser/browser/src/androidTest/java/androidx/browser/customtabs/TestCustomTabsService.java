@@ -24,12 +24,12 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
+import android.support.customtabs.IAuthTabCallback;
 import android.support.customtabs.ICustomTabsCallback;
 import android.support.customtabs.ICustomTabsService;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.mockito.Mockito;
 
 import java.io.FileDescriptor;
@@ -44,10 +44,10 @@ import java.util.concurrent.TimeUnit;
 
 public class TestCustomTabsService extends CustomTabsService {
     public static final String CALLBACK_BIND_TO_POST_MESSAGE = "BindToPostMessageService";
+    public static final String ALLOWED_TARGET_ORIGIN = "www.example.com";
     private static TestCustomTabsService sInstance;
 
     private final CountDownLatch mFileReceivingLatch = new CountDownLatch(1);
-
     private boolean mPostMessageRequested;
     private CustomTabsSessionToken mSession;
     private ICustomTabsService mMock;
@@ -85,6 +85,18 @@ public class TestCustomTabsService extends CustomTabsService {
         }
 
         @Override
+        public void prefetch(ICustomTabsCallback callback, Uri url, Bundle options)
+                throws RemoteException {
+            mMock.prefetch(callback, url, options);
+        }
+
+        @Override
+        public void prefetchWithMultipleUrls(ICustomTabsCallback callback, List<Uri> urls,
+                Bundle options) throws RemoteException {
+            mMock.prefetchWithMultipleUrls(callback, urls, options);
+        }
+
+        @Override
         public Bundle extraCommand(String commandName, Bundle args) throws RemoteException {
             return null;
         }
@@ -106,7 +118,6 @@ public class TestCustomTabsService extends CustomTabsService {
                 Uri postMessageOrigin, Bundle extras) throws RemoteException {
             return false;
         }
-
         @Override
         public int postMessage(ICustomTabsCallback callback, String message, Bundle extras)
                 throws RemoteException {
@@ -138,15 +149,19 @@ public class TestCustomTabsService extends CustomTabsService {
         }
 
         @Override
-        public int getGreatestScrollPercentage(ICustomTabsCallback customTabsCallback,
-                Bundle extras) throws RemoteException {
-            return mMock.getGreatestScrollPercentage(customTabsCallback, extras);
+        public boolean isEphemeralBrowsingSupported(Bundle extras) throws RemoteException {
+            return mMock.isEphemeralBrowsingSupported(extras);
+        }
+
+        @Override
+        public boolean newAuthTabSession(IAuthTabCallback callback, Bundle extras)
+                throws RemoteException {
+            return false;
         }
     };
 
-    @NonNull
     @Override
-    public IBinder onBind(Intent intent) {
+    public @NonNull IBinder onBind(Intent intent) {
         sInstance = this;
         return super.onBind(intent);
     }
@@ -168,9 +183,13 @@ public class TestCustomTabsService extends CustomTabsService {
         return false;
     }
 
-    @NonNull
     @Override
-    protected Bundle extraCommand(@NonNull String commandName, Bundle args) {
+    protected void prefetch(@NonNull CustomTabsSessionToken sessionToken,
+            @NonNull Uri url, @NonNull PrefetchOptions options) {
+    }
+
+    @Override
+    protected @NonNull Bundle extraCommand(@NonNull String commandName, Bundle args) {
         return Bundle.EMPTY;
     }
 
@@ -182,7 +201,16 @@ public class TestCustomTabsService extends CustomTabsService {
     @Override
     protected boolean requestPostMessageChannel(
             @NonNull CustomTabsSessionToken sessionToken, @NonNull Uri postMessageOrigin) {
+        return requestPostMessageChannel(sessionToken, postMessageOrigin, null, new Bundle());
+    }
+
+    @Override
+    protected boolean requestPostMessageChannel(@NonNull CustomTabsSessionToken sessionToken,
+            @NonNull Uri postMessageOrigin, @Nullable Uri postMessageTargetOrigin,
+            @NonNull Bundle extras) {
         if (mSession == null) return false;
+        if (postMessageTargetOrigin != null
+                && !postMessageTargetOrigin.toString().equals(ALLOWED_TARGET_ORIGIN)) return false;
         mPostMessageRequested = true;
         mSession.getCallback().extraCallback(CALLBACK_BIND_TO_POST_MESSAGE, null);
         return true;

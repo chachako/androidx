@@ -32,12 +32,13 @@ internal class KspSyntheticReceiverParameterElement(
     val env: KspProcessingEnv,
     override val enclosingElement: KspMethodElement,
     val receiverType: KSTypeReference,
-) : XExecutableParameterElement,
+) :
+    XExecutableParameterElement,
     XEquality,
     XAnnotated by KspAnnotated.create(
         env = env,
-        delegate = null, // does not matter, this is synthetic and has no annotations.
-        filter = KspAnnotated.UseSiteFilter.NO_USE_SITE
+        delegate = receiverType, // for @receiver use-site annotations
+        filter = KspAnnotated.UseSiteFilter.NO_USE_SITE_OR_RECEIVER
     ) {
 
     override fun isContinuationParam() = false
@@ -46,27 +47,28 @@ internal class KspSyntheticReceiverParameterElement(
 
     override fun isKotlinPropertyParam() = false
 
+    override fun isVarArgs() = false
+
     override val name: String by lazy {
         // KAPT uses `$this$<functionName>`
         "$" + "this" + "$" + enclosingElement.name
     }
 
-    override val equalityItems: Array<out Any?> by lazy {
-        arrayOf(enclosingElement, receiverType)
-    }
+    override val jvmName = name
+
+    override val equalityItems: Array<out Any?> by lazy { arrayOf(enclosingElement, receiverType) }
 
     override val hasDefaultValue: Boolean
         get() = false
 
-    override val type: KspType by lazy {
-        createAsMemberOf(closestMemberContainer.type)
-    }
+    override val type: KspType by lazy { createAsMemberOf(closestMemberContainer.type) }
 
     override val fallbackLocationText: String
         get() = "receiver parameter of ${enclosingElement.fallbackLocationText}"
 
     // Not applicable
-    override val docComment: String? get() = null
+    override val docComment: String?
+        get() = null
 
     override val closestMemberContainer: XMemberContainer by lazy {
         enclosingElement.closestMemberContainer
@@ -82,25 +84,27 @@ internal class KspSyntheticReceiverParameterElement(
 
     private fun createAsMemberOf(container: XType?): KspType {
         check(container is KspType?)
-        val asMemberReceiverType = receiverType.resolve().let {
-            if (container?.ksType == null || it.isError) {
-                return@let it
+        val asMemberReceiverType =
+            receiverType.resolve().let {
+                if (container?.ksType == null || it.isError) {
+                    return@let it
+                }
+                val asMember = enclosingElement.declaration.asMemberOf(container?.ksType)
+                checkNotNull(asMember.extensionReceiverType)
             }
-            val asMember = enclosingElement.declaration.asMemberOf(container?.ksType)
-            checkNotNull(asMember.extensionReceiverType)
-        }
         return env.wrap(
-            originatingReference = receiverType,
-            ksType = asMemberReceiverType,
-        ).copyWithScope(
-            KSTypeVarianceResolverScope.MethodParameter(
-                kspExecutableElement = enclosingElement,
-                parameterIndex = 0, // Receiver param is the 1st one
-                annotated = enclosingElement.declaration,
-                container = container?.ksType?.declaration,
-                asMemberOf = container
+                originatingReference = receiverType,
+                ksType = asMemberReceiverType,
             )
-        )
+            .copyWithScope(
+                KSTypeVarianceResolverScope.MethodParameter(
+                    kspExecutableElement = enclosingElement,
+                    parameterIndex = 0, // Receiver param is the 1st one
+                    annotated = enclosingElement.declaration,
+                    container = container?.ksType?.declaration,
+                    asMemberOf = container
+                )
+            )
     }
 
     override fun kindName(): String {
@@ -113,6 +117,10 @@ internal class KspSyntheticReceiverParameterElement(
 
     override fun equals(other: Any?): Boolean {
         return XEquality.equals(this, other)
+    }
+
+    override fun toString(): String {
+        return name
     }
 
     override fun hashCode(): Int {

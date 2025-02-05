@@ -18,13 +18,11 @@ package androidx.tv.material3
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -40,64 +38,59 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.FocusState
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 
 /**
- * Navigation drawers provide ergonomic access to destinations in an app.
- * Modal navigation drawers are good for infrequent, but more focused, switching to different
- * destinations.
+ * Navigation drawers provide ergonomic access to destinations in an app. Modal navigation drawers
+ * are good for infrequent, but more focused, switching to different destinations.
  *
  * It displays content associated with the closed state when the drawer is not in focus and displays
- * content associated with the open state when the drawer or its contents are focused on.
- * Modal navigation drawers are elevated above most of the app’s UI and don’t affect the screen’s
- * layout grid.
+ * content associated with the open state when the drawer or its contents are focused on. Modal
+ * navigation drawers are elevated above most of the app’s UI and don’t affect the screen’s layout
+ * grid.
  *
  * Example:
- * @sample androidx.tv.samples.SampleModalNavigationDrawer
  *
+ * @sample androidx.tv.material3.samples.SampleModalNavigationDrawerWithSolidScrim
+ * @sample androidx.tv.material3.samples.SampleModalNavigationDrawerWithGradientScrim
  * @param drawerContent Content that needs to be displayed on the drawer based on whether the drawer
- * is [DrawerValue.Open] or [DrawerValue.Closed].
- * Drawer-entries can be animated when the drawer moves from Closed to Open state and vice-versa.
- * For, e.g., the entry could show only an icon in the Closed state and slide in text to form
- * (icon + text) when in the Open state.
+ *   is [DrawerValue.Open] or [DrawerValue.Closed]. Drawer-entries can be animated when the drawer
+ *   moves from Closed to Open state and vice-versa. For, e.g., the entry could show only an icon in
+ *   the Closed state and slide in text to form (icon + text) when in the Open state.
  *
  * To limit the width of the drawer in the open or closed state, wrap the content in a box with the
  * required width.
  *
  * @param modifier the [Modifier] to be applied to this drawer
  * @param drawerState state of the drawer
- * @param scrimColor color of the scrim that obscures content when the drawer is open
- * @param content content of the rest of the UI
+ * @param scrimBrush brush to paint the scrim that obscures content when the drawer is open
+ * @param content content of the rest of the UI. The content extends to the edge of the container
+ *   under the modal navigation drawer. Focusable content that is not part of the background must
+ *   have start-padding sufficient to prevent it from being drawn under the drawer in the Closed
+ *   state.
  */
-@ExperimentalTvMaterial3Api
 @Composable
 fun ModalNavigationDrawer(
-    drawerContent: @Composable (DrawerValue) -> Unit,
+    drawerContent: @Composable NavigationDrawerScope.(DrawerValue) -> Unit,
     modifier: Modifier = Modifier,
     drawerState: DrawerState = rememberDrawerState(DrawerValue.Closed),
-    scrimColor: Color = LocalColorScheme.current.scrim.copy(alpha = 0.5f),
+    scrimBrush: Brush = SolidColor(LocalColorScheme.current.scrim.copy(alpha = 0.5f)),
     content: @Composable () -> Unit
 ) {
     val localDensity = LocalDensity.current
     val closedDrawerWidth: MutableState<Dp?> = remember { mutableStateOf(null) }
     val internalDrawerModifier =
-        Modifier
-            .zIndex(Float.MAX_VALUE)
-            .onSizeChanged {
-                if (closedDrawerWidth.value == null &&
-                    drawerState.currentValue == DrawerValue.Closed
-                ) {
-                    with(localDensity) {
-                        closedDrawerWidth.value = it.width.toDp()
-                    }
-                }
+        Modifier.zIndex(Float.MAX_VALUE).onSizeChanged {
+            if (closedDrawerWidth.value == null && drawerState.currentValue == DrawerValue.Closed) {
+                with(localDensity) { closedDrawerWidth.value = it.width.toDp() }
             }
+        }
 
     Box(modifier = modifier) {
         DrawerSheet(
@@ -105,44 +98,38 @@ fun ModalNavigationDrawer(
             drawerState = drawerState,
             sizeAnimationFinishedListener = { _, targetSize ->
                 if (drawerState.currentValue == DrawerValue.Closed) {
-                    with(localDensity) {
-                        closedDrawerWidth.value = targetSize.width.toDp()
-                    }
+                    with(localDensity) { closedDrawerWidth.value = targetSize.width.toDp() }
                 }
             },
             content = drawerContent
         )
 
-        Box(Modifier.padding(start = closedDrawerWidth.value ?: ClosedDrawerWidth.dp)) {
-            content()
-            if (drawerState.currentValue == DrawerValue.Open) {
-                // Scrim
-                Canvas(Modifier.fillMaxSize()) {
-                    drawRect(scrimColor)
-                }
-            }
+        content()
+
+        if (drawerState.currentValue == DrawerValue.Open) {
+            // Scrim
+            Canvas(Modifier.fillMaxSize()) { drawRect(scrimBrush) }
         }
     }
 }
 
 /**
- * Navigation drawers provide ergonomic access to destinations in an app. They’re often next to
- * app content and affect the screen’s layout grid.
- * Standard navigation drawers are good for frequent switching to different destinations.
+ * Navigation drawers provide ergonomic access to destinations in an app. They’re often next to app
+ * content and affect the screen’s layout grid. Standard navigation drawers are good for frequent
+ * switching to different destinations.
  *
  * It displays content associated with the closed state when the drawer is not in focus and displays
- * content associated with the open state when the drawer or its contents are focused on.
- * The drawer is at the same level as the app's UI an reduces the screen size available to the
- * remaining content.
+ * content associated with the open state when the drawer or its contents are focused on. The drawer
+ * is at the same level as the app's UI an reduces the screen size available to the remaining
+ * content.
  *
  * Example:
- * @sample androidx.tv.samples.SampleNavigationDrawer
  *
+ * @sample androidx.tv.material3.samples.SampleNavigationDrawer
  * @param drawerContent Content that needs to be displayed on the drawer based on whether the drawer
- * is [DrawerValue.Open] or [DrawerValue.Closed].
- * Drawer-entries can be animated when the drawer moves from Closed to Open state and vice-versa.
- * For, e.g., the entry could show only an icon in the Closed state and slide in text to form
- * (icon + text) when in the Open state.
+ *   is [DrawerValue.Open] or [DrawerValue.Closed]. Drawer-entries can be animated when the drawer
+ *   moves from Closed to Open state and vice-versa. For, e.g., the entry could show only an icon in
+ *   the Closed state and slide in text to form (icon + text) when in the Open state.
  *
  * To limit the width of the drawer in the open or closed state, wrap the content in a box with the
  * required width.
@@ -151,36 +138,25 @@ fun ModalNavigationDrawer(
  * @param drawerState state of the drawer
  * @param content content of the rest of the UI
  */
-@ExperimentalTvMaterial3Api
 @Composable
 fun NavigationDrawer(
-    drawerContent: @Composable (DrawerValue) -> Unit,
+    drawerContent: @Composable NavigationDrawerScope.(DrawerValue) -> Unit,
     modifier: Modifier = Modifier,
     drawerState: DrawerState = rememberDrawerState(DrawerValue.Closed),
     content: @Composable () -> Unit
 ) {
     Row(modifier = modifier) {
-        DrawerSheet(
-            drawerState = drawerState,
-            content = drawerContent
-        )
+        DrawerSheet(drawerState = drawerState, content = drawerContent)
         content()
     }
 }
 
-/**
- * States that the drawer can exist in.
- */
-@ExperimentalTvMaterial3Api
+/** States that the drawer can exist in. */
 enum class DrawerValue {
-    /**
-     * The state of the drawer when it is closed.
-     */
+    /** The state of the drawer when it is closed. */
     Closed,
 
-    /**
-     * The state of the drawer when it is open.
-     */
+    /** The state of the drawer when it is open. */
     Open
 }
 
@@ -189,7 +165,6 @@ enum class DrawerValue {
  *
  * @param initialValue the initial value ([DrawerValue.Closed] or [DrawerValue.Open]) of the drawer.
  */
-@ExperimentalTvMaterial3Api
 class DrawerState(initialValue: DrawerValue = DrawerValue.Closed) {
     var currentValue by mutableStateOf(initialValue)
         private set
@@ -222,21 +197,16 @@ class DrawerState(initialValue: DrawerValue = DrawerValue.Closed) {
  * @param initialValue The initial value of the state.
  */
 @Composable
-@ExperimentalTvMaterial3Api
 fun rememberDrawerState(initialValue: DrawerValue): DrawerState {
-    return rememberSaveable(saver = DrawerState.Saver) {
-        DrawerState(initialValue)
-    }
+    return rememberSaveable(saver = DrawerState.Saver) { DrawerState(initialValue) }
 }
 
-@Suppress("IllegalExperimentalApiUsage") // TODO (b/233188423): Address before moving to beta
-@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 private fun DrawerSheet(
     modifier: Modifier = Modifier,
     drawerState: DrawerState = remember { DrawerState() },
     sizeAnimationFinishedListener: ((initialValue: IntSize, targetValue: IntSize) -> Unit)? = null,
-    content: @Composable (DrawerValue) -> Unit
+    content: @Composable NavigationDrawerScope.(DrawerValue) -> Unit
 ) {
     // indicates that the drawer has been set to its initial state and has grabbed focus if
     // necessary. Controls whether focus is used to decide the state of the drawer going forward.
@@ -252,8 +222,7 @@ private fun DrawerSheet(
     }
 
     val internalModifier =
-        Modifier
-            .focusRequester(focusRequester)
+        Modifier.focusRequester(focusRequester)
             .animateContentSize(finishedListener = sizeAnimationFinishedListener)
             .fillMaxHeight()
             // adding passed-in modifier here to ensure animateContentSize is called before other
@@ -268,7 +237,9 @@ private fun DrawerSheet(
             }
             .focusGroup()
 
-    Box(modifier = internalModifier) { content.invoke(drawerState.currentValue) }
+    Box(modifier = internalModifier) {
+        NavigationDrawerScopeImpl(drawerState.currentValue == DrawerValue.Open).apply {
+            content(drawerState.currentValue)
+        }
+    }
 }
-
-private const val ClosedDrawerWidth = 80

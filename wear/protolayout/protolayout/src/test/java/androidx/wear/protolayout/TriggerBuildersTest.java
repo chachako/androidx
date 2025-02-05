@@ -18,13 +18,14 @@ package androidx.wear.protolayout;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.wear.protolayout.expression.AppDataKey;
 import androidx.wear.protolayout.expression.DynamicBuilders;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.RobolectricTestRunner;
 
-@RunWith(RobolectricTestRunner.class)
+@RunWith(AndroidJUnit4.class)
 public class TriggerBuildersTest {
 
     @Test
@@ -34,17 +35,15 @@ public class TriggerBuildersTest {
         assertThat(onLoadTrigger.toTriggerProto().hasOnLoadTrigger()).isTrue();
     }
 
-
     @Test
     public void onConditionTrigger() {
-        DynamicBuilders.DynamicBool condition = DynamicBuilders.DynamicBool.fromState("state");
+        DynamicBuilders.DynamicBool condition =
+                DynamicBuilders.DynamicBool.from(new AppDataKey<>("state"));
 
         TriggerBuilders.Trigger onConditionMetTrigger =
-                TriggerBuilders.createOnConditionMetTrigger(
-                condition);
+                TriggerBuilders.createOnConditionMetTrigger(condition);
 
-        assertThat(
-                onConditionMetTrigger.toTriggerProto().getOnConditionMetTrigger().getCondition())
+        assertThat(onConditionMetTrigger.toTriggerProto().getOnConditionMetTrigger().getCondition())
                 .isEqualTo(condition.toDynamicBoolProto());
     }
 }

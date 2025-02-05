@@ -16,6 +16,7 @@
 
 package androidx.wear.protolayout.expression;
 
+import static androidx.wear.protolayout.expression.DynamicBuilders.dynamicBoolFromProto;
 import static androidx.wear.protolayout.expression.proto.DynamicProto.LogicalOpType.LOGICAL_OP_TYPE_AND;
 import static androidx.wear.protolayout.expression.proto.DynamicProto.LogicalOpType.LOGICAL_OP_TYPE_EQUAL;
 import static androidx.wear.protolayout.expression.proto.DynamicProto.LogicalOpType.LOGICAL_OP_TYPE_NOT_EQUAL;
@@ -26,6 +27,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import androidx.wear.protolayout.expression.DynamicBuilders.DynamicBool;
+import androidx.wear.protolayout.expression.proto.DynamicProto;
+import androidx.wear.protolayout.proto.FingerprintProto.NodeFingerprint;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,7 +54,7 @@ public final class DynamicBoolTest {
 
     @Test
     public void stateEntryValueBool() {
-        DynamicBool stateBool = DynamicBool.fromState(STATE_KEY);
+        DynamicBool stateBool = DynamicBool.from(new AppDataKey<>(STATE_KEY));
 
         assertThat(stateBool.toDynamicBoolProto().getStateSource().getSourceKey())
                 .isEqualTo(STATE_KEY);
@@ -59,8 +62,8 @@ public final class DynamicBoolTest {
 
     @Test
     public void stateToString() {
-        assertThat(DynamicBool.fromState("key").toString())
-                .isEqualTo("StateBoolSource{sourceKey=key}");
+        assertThat(DynamicBool.from(new AppDataKey<>("key")).toString())
+                .isEqualTo("StateBoolSource{sourceKey=key, sourceNamespace=}");
     }
 
     @Test
@@ -144,7 +147,7 @@ public final class DynamicBoolTest {
     }
 
     @Test
-    public void validProto() {
+    public void fromByteArray_validProto() {
         DynamicBool from = DynamicBool.constant(true);
         DynamicBool to = DynamicBool.fromByteArray(from.toDynamicBoolByteArray());
 
@@ -152,8 +155,79 @@ public final class DynamicBoolTest {
     }
 
     @Test
-    public void invalidProto() {
+    public void fromByteArray_invalidProto() {
         assertThrows(
                 IllegalArgumentException.class, () -> DynamicBool.fromByteArray(new byte[] {1}));
+    }
+
+    @Test
+    public void fromByteArray_existingByteArray() {
+        DynamicBool from = DynamicBool.constant(true);
+        byte[] buffer = new byte[100];
+        int written = from.toDynamicBoolByteArray(buffer, 10, 50);
+
+        DynamicBool to = DynamicBool.fromByteArray(buffer, 10, written);
+
+        assertThat(to.toDynamicBoolProto().getFixed().getValue()).isTrue();
+    }
+
+    @Test
+    public void fromByteArray_existingByteArrayTooSmall() {
+        DynamicBool from = DynamicBool.constant(true);
+        byte[] buffer = new byte[100];
+        int written = from.toDynamicBoolByteArray(buffer);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicBool.fromByteArray(buffer, 0, written - 1));
+    }
+
+    @Test
+    public void fromByteArray_existingByteArrayTooLarge() {
+        DynamicBool from = DynamicBool.constant(true);
+        byte[] buffer = new byte[100];
+        int written = from.toDynamicBoolByteArray(buffer);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicBool.fromByteArray(buffer, 0, written + 1));
+    }
+
+    @Test
+    public void toByteArray_existingByteArrayTooSmall() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicBool.constant(true).toDynamicBoolByteArray(new byte[1]));
+    }
+
+    @Test
+    public void toByteArray_existingByteArraySameSize() {
+        DynamicBool from = DynamicBool.constant(true);
+
+        assertThat(from.toDynamicBoolByteArray(new byte[100]))
+                .isEqualTo(from.toDynamicBoolByteArray().length);
+    }
+
+    @Test
+    public void serializing_deserializing_withFingerprint() {
+        DynamicBool from = DynamicBool.constant(true);
+        NodeFingerprint fingerprint = from.getFingerprint().toProto();
+
+        DynamicProto.DynamicBool to = from.toDynamicBoolProto(true);
+        assertThat(to.getFingerprint()).isEqualTo(fingerprint);
+
+        DynamicBool back = dynamicBoolFromProto(to);
+        assertThat(back.getFingerprint().toProto()).isEqualTo(fingerprint);
+    }
+
+    @Test
+    public void toByteArray_fromByteArray_withFingerprint() {
+        DynamicBool from = DynamicBool.constant(true);
+        byte[] buffer = from.toDynamicBoolByteArray();
+        DynamicProto.DynamicBool toProto =
+                DynamicBool.fromByteArray(buffer).toDynamicBoolProto(true);
+
+        assertThat(toProto.getFixed().getValue()).isTrue();
+        assertThat(toProto.getFingerprint()).isEqualTo(from.getFingerprint().toProto());
     }
 }

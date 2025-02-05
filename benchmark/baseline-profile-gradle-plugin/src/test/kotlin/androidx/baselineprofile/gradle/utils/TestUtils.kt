@@ -18,9 +18,19 @@ package androidx.baselineprofile.gradle.utils
 
 import com.google.common.truth.StringSubject
 import com.google.common.truth.Truth.assertThat
+import java.io.File
+import kotlin.io.path.Path
 import org.gradle.testkit.runner.GradleRunner
 
-internal val GRADLE_CODE_PRINT_TASK = """
+internal val GRADLE_CODE_PRINT_TASK =
+    """
+    abstract class DisplaySourceSets extends DefaultTask {
+        @Input abstract ListProperty<Directory> getSrcs()
+        @TaskAction void exec() {
+            srcs.get().forEach { directory -> println(directory) }
+        }
+    }
+
     abstract class PrintTask extends DefaultTask {
         @Input abstract Property<String> getText()
         @TaskAction void exec() { println(getText().get()) }
@@ -34,23 +44,14 @@ internal val GRADLE_CODE_PRINT_TASK = """
         println("agpVersion=" + agpVersion)
     }
 
-    """.trimIndent()
+    """
+        .trimIndent()
 
-internal fun GradleRunner.build(vararg arguments: String, block: (String) -> (Unit)) {
-    this
-        .withArguments(*arguments, "--stacktrace")
-        .build()
-        .output
-        .let(block)
-}
+internal fun GradleRunner.build(vararg arguments: String, block: (String) -> (Unit)) =
+    this.withArguments(*arguments, "--stacktrace").build().output.also(block)
 
-internal fun GradleRunner.buildAndFail(vararg arguments: String, block: (String) -> (Unit)) {
-    this
-        .withArguments(*arguments, "--stacktrace")
-        .buildAndFail()
-        .output
-        .let(block)
-}
+internal fun GradleRunner.buildAndFail(vararg arguments: String, block: (String) -> (Unit)) =
+    this.withArguments(*arguments, "--stacktrace").buildAndFail().output.also(block)
 
 internal fun GradleRunner.buildAndAssertThatOutput(
     vararg arguments: String,
@@ -67,13 +68,13 @@ internal fun GradleRunner.buildAndFailAndAssertThatOutput(
 }
 
 internal fun List<String>.requireInOrder(
-    vararg strings: String,
-    evaluate: (String, String) -> (Boolean) = { line, nextToFind -> line.startsWith(nextToFind) },
+    vararg toFind: String,
+    predicate: (String, String) -> (Boolean) = { line, nextToFind -> line.startsWith(nextToFind) }
 ): List<String> {
-    val remaining = mutableListOf(*strings)
-    for (string in strings) {
-        val next = remaining.firstOrNull() ?: break
-        if (evaluate(string, next)) remaining.remove(next)
+    var remaining = toFind.filter { it.isNotBlank() }.toMutableList()
+    for (line in this) {
+        val next = remaining.firstOrNull() ?: return emptyList()
+        if (predicate(line, next)) remaining.removeFirst()
     }
     return remaining
 }
@@ -83,15 +84,33 @@ internal fun List<String>.require(
     evaluate: (String, String) -> (Boolean) = { line, nextToFind -> line.startsWith(nextToFind) },
 ): Set<String> {
     val remaining = mutableSetOf(*strings)
-    for (string in strings) {
-        if (remaining.isEmpty()) break
-        val iter = remaining.iterator()
-        while (iter.hasNext()) iter.next().run {
-            if (evaluate(string, this)) {
-                iter.remove()
-                return@run
+    val iterator = remaining.iterator()
+    while (iterator.hasNext()) {
+        val next = iterator.next()
+        for (string in this) {
+            if (evaluate(string, next)) {
+                iterator.remove()
+                break
             }
         }
     }
     return remaining
 }
+
+internal fun List<String>.containsOnly(vararg strings: String): Boolean =
+    toSet().union(setOf(*strings)).size == this.size
+
+fun camelCase(vararg strings: String): String {
+    if (strings.isEmpty()) return ""
+    return StringBuilder()
+        .apply {
+            var shouldCapitalize = false
+            for (str in strings.filter { it.isNotBlank() }) {
+                append(if (shouldCapitalize) str.capitalized() else str)
+                shouldCapitalize = true
+            }
+        }
+        .toString()
+}
+
+fun File.toUri() = Path(canonicalPath).toUri()

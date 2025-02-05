@@ -16,7 +16,6 @@
 package androidx.privacysandbox.sdkruntime.client.config
 
 import android.util.Xml
-import androidx.annotation.RestrictTo
 import java.io.InputStream
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParser.END_TAG
@@ -26,26 +25,15 @@ import org.xmlpull.v1.XmlPullParserException
 /**
  * Parser for config with paths to compat SDK configs for each SDK that bundled with app.
  *
- * The expected XML structure is:
- * <runtime-enabled-sdk-table>
- *     <runtime-enabled-sdk>
- *         <package-name>com.sdk1</package-name>
- *         <version-major>1</version-major>
- *         <compat-config-path>assets/RuntimeEnabledSdk-com.sdk1/CompatSdkConfig.xml</compat-config-path>
- *     </runtime-enabled-sdk>
- *     <runtime-enabled-sdk>
- *         <package-name>com.sdk2</package-name>
- *         <version-major>42</version-major>
- *         <compat-config-path>assets/RuntimeEnabledSdk-com.sdk2/CompatSdkConfig.xml</compat-config-path>
- *     </runtime-enabled-sdk>
- * </runtime-enabled-sdk-table>
- *
- * @suppress
+ * The expected XML structure is: <runtime-enabled-sdk-table> <runtime-enabled-sdk>
+ * <package-name>com.sdk1</package-name> <version-major>1</version-major>
+ * <compat-config-path>assets/RuntimeEnabledSdk-com.sdk1/CompatSdkConfig.xml</compat-config-path>
+ * </runtime-enabled-sdk> <runtime-enabled-sdk> <package-name>com.sdk2</package-name>
+ * <version-major>42</version-major>
+ * <compat-config-path>assets/RuntimeEnabledSdk-com.sdk2/CompatSdkConfig.xml</compat-config-path>
+ * </runtime-enabled-sdk> </runtime-enabled-sdk-table>
  */
-@RestrictTo(RestrictTo.Scope.LIBRARY)
-internal class SdkTableConfigParser private constructor(
-    private val xmlParser: XmlPullParser
-) {
+internal class SdkTableConfigParser private constructor(private val xmlParser: XmlPullParser) {
 
     private fun readSdkTable(): Set<SdkTableEntry> {
         xmlParser.require(XmlPullParser.START_DOCUMENT, NAMESPACE, null)
@@ -94,7 +82,6 @@ internal class SdkTableConfigParser private constructor(
                     }
                     packageName = xmlParser.nextText()
                 }
-
                 VERSION_MAJOR_ELEMENT_NAME -> {
                     if (versionMajor != null) {
                         throw XmlPullParserException(
@@ -103,7 +90,6 @@ internal class SdkTableConfigParser private constructor(
                     }
                     versionMajor = xmlParser.nextText().toInt()
                 }
-
                 COMPAT_CONFIG_PATH_ELEMENT_NAME -> {
                     if (configPath != null) {
                         throw XmlPullParserException(
@@ -112,21 +98,16 @@ internal class SdkTableConfigParser private constructor(
                     }
                     configPath = xmlParser.nextText()
                 }
-
                 else -> xmlParser.skipCurrentTag()
             }
         }
         xmlParser.require(END_TAG, NAMESPACE, SDK_ENTRY_ELEMENT_NAME)
 
         if (packageName == null) {
-            throw XmlPullParserException(
-                "No $SDK_PACKAGE_NAME_ELEMENT_NAME tag found"
-            )
+            throw XmlPullParserException("No $SDK_PACKAGE_NAME_ELEMENT_NAME tag found")
         }
         if (configPath == null) {
-            throw XmlPullParserException(
-                "No $COMPAT_CONFIG_PATH_ELEMENT_NAME tag found"
-            )
+            throw XmlPullParserException("No $COMPAT_CONFIG_PATH_ELEMENT_NAME tag found")
         }
 
         return SdkTableEntry(packageName, versionMajor, configPath)

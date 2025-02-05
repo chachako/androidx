@@ -24,8 +24,8 @@ import android.util.Pair;
 import android.util.Range;
 import android.util.Size;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
@@ -59,12 +59,10 @@ public interface ImageCaptureExtenderImpl extends ExtenderStateListener {
     /**
      * The processing that will be done on a set of captures to create and image with the effect.
      */
-    @Nullable
-    CaptureProcessorImpl getCaptureProcessor();
+    @Nullable CaptureProcessorImpl getCaptureProcessor();
 
     /** The set of captures that are needed to create an image with the effect. */
-    @NonNull
-    List<CaptureStageImpl> getCaptureStages();
+    @NonNull List<CaptureStageImpl> getCaptureStages();
 
     /**
      * Returns the maximum size of the list returned by {@link #getCaptureStages()}.
@@ -86,24 +84,20 @@ public interface ImageCaptureExtenderImpl extends ExtenderStateListener {
      *         {@link android.hardware.camera2.params.StreamConfigurationMap}.
      * @since 1.1
      */
-    @Nullable
-    List<Pair<Integer, Size[]>> getSupportedResolutions();
+    @Nullable List<Pair<Integer, Size[]>> getSupportedResolutions();
 
     /**
-     * Returns the customized supported postview resolutions for a still capture using
-     * its size.
+     * Returns supported output format/size map for postview image. OEM is required to support
+     * YUV_420_888 format output.
      *
      * <p>Pair list composed with {@link ImageFormat} and {@link Size} array will be returned.
+     * The sizes must be smaller than or equal to the provided capture size and have the same
+     * aspect ratio as the given capture size.
      *
-     * <p>The returned resolutions should be subset of the supported sizes retrieved from
-     * {@link android.hardware.camera2.params.StreamConfigurationMap} for the camera device.
-     *
-     * @return the customized supported resolutions, or null to support all sizes retrieved from
-     *         {@link android.hardware.camera2.params.StreamConfigurationMap}.
      * @since 1.4
      */
-    @Nullable
-    List<Pair<Integer, Size[]>> getSupportedPostviewResolutions(@NonNull Size captureSize);
+    @Nullable List<Pair<Integer, Size[]>> getSupportedPostviewResolutions(
+            @NonNull Size captureSize);
 
     /**
      * Returns the estimated capture latency range in milliseconds for the target capture
@@ -119,8 +113,7 @@ public interface ImageCaptureExtenderImpl extends ExtenderStateListener {
      * null if no capture latency info can be provided.
      * @since 1.2
      */
-    @Nullable
-    Range<Long> getEstimatedCaptureLatencyRange(@Nullable Size captureOutputSize);
+    @Nullable Range<Long> getEstimatedCaptureLatencyRange(@Nullable Size captureOutputSize);
 
     /**
      * Return a list of orthogonal capture request keys.
@@ -161,8 +154,7 @@ public interface ImageCaptureExtenderImpl extends ExtenderStateListener {
      * are not supported.
      * @since 1.3
      */
-    @NonNull
-    List<CaptureRequest.Key> getAvailableCaptureRequestKeys();
+    @NonNull List<CaptureRequest.Key> getAvailableCaptureRequestKeys();
 
     /**
      * Return a list of supported capture result keys.
@@ -181,8 +173,7 @@ public interface ImageCaptureExtenderImpl extends ExtenderStateListener {
      * supported.
      * @since 1.3
      */
-    @NonNull
-    List<CaptureResult.Key> getAvailableCaptureResultKeys();
+    @NonNull List<CaptureResult.Key> getAvailableCaptureResultKeys();
 
     /**
      * Advertise support for {@link ProcessResultImpl#onCaptureProcessProgressed}.
@@ -211,8 +202,7 @@ public interface ImageCaptureExtenderImpl extends ExtenderStateListener {
      * null pair.
      * @since 1.4
      */
-    @Nullable
-    Pair<Long, Long> getRealtimeCaptureLatency();
+    @Nullable Pair<Long, Long> getRealtimeCaptureLatency();
 
     /**
      * Indicates whether the extension supports the postview for still capture feature.

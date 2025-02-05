@@ -27,18 +27,14 @@ import static androidx.wear.protolayout.material.ChipDefaults.HORIZONTAL_PADDING
 import static androidx.wear.protolayout.material.ChipDefaults.ICON_SIZE;
 import static androidx.wear.protolayout.material.ChipDefaults.ICON_SPACER_WIDTH;
 import static androidx.wear.protolayout.material.ChipDefaults.PRIMARY_COLORS;
-import static androidx.wear.protolayout.material.Helper.checkNotNull;
-import static androidx.wear.protolayout.material.Helper.checkTag;
-import static androidx.wear.protolayout.material.Helper.getMetadataTagName;
-import static androidx.wear.protolayout.material.Helper.getTagBytes;
-import static androidx.wear.protolayout.material.Helper.radiusOf;
+import static androidx.wear.protolayout.materialcore.Chip.METADATA_TAG_CUSTOM_CONTENT;
+import static androidx.wear.protolayout.materialcore.Chip.METADATA_TAG_ICON;
+import static androidx.wear.protolayout.materialcore.Helper.checkNotNull;
+import static androidx.wear.protolayout.materialcore.Helper.staticString;
 
 import android.content.Context;
 
 import androidx.annotation.Dimension;
-import androidx.annotation.IntDef;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.RestrictTo.Scope;
 import androidx.wear.protolayout.ColorBuilders.ColorProp;
@@ -46,39 +42,28 @@ import androidx.wear.protolayout.DeviceParametersBuilders.DeviceParameters;
 import androidx.wear.protolayout.DimensionBuilders.ContainerDimension;
 import androidx.wear.protolayout.DimensionBuilders.DpProp;
 import androidx.wear.protolayout.LayoutElementBuilders;
-import androidx.wear.protolayout.LayoutElementBuilders.Box;
 import androidx.wear.protolayout.LayoutElementBuilders.ColorFilter;
-import androidx.wear.protolayout.LayoutElementBuilders.Column;
 import androidx.wear.protolayout.LayoutElementBuilders.HorizontalAlignment;
 import androidx.wear.protolayout.LayoutElementBuilders.Image;
 import androidx.wear.protolayout.LayoutElementBuilders.LayoutElement;
-import androidx.wear.protolayout.LayoutElementBuilders.Row;
-import androidx.wear.protolayout.LayoutElementBuilders.Spacer;
-import androidx.wear.protolayout.ModifiersBuilders.Background;
 import androidx.wear.protolayout.ModifiersBuilders.Clickable;
-import androidx.wear.protolayout.ModifiersBuilders.Corner;
-import androidx.wear.protolayout.ModifiersBuilders.ElementMetadata;
-import androidx.wear.protolayout.ModifiersBuilders.Modifiers;
-import androidx.wear.protolayout.ModifiersBuilders.Padding;
-import androidx.wear.protolayout.ModifiersBuilders.Semantics;
 import androidx.wear.protolayout.TypeBuilders.StringProp;
 import androidx.wear.protolayout.expression.Fingerprint;
 import androidx.wear.protolayout.material.Typography.TypographyName;
 import androidx.wear.protolayout.proto.LayoutElementProto;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.util.HashMap;
-import java.util.Map;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * ProtoLayout component {@link Chip} that represents clickable object with the text, optional label
  * and optional icon or with custom content.
  *
- * <p>The Chip is Stadium shape and has a max height designed to take no more than two lines of text
- * of {@link Typography#TYPOGRAPHY_BUTTON} style. The {@link Chip} can have an icon horizontally
- * parallel to the two lines of text. Width of chip can very, and the recommended size is screen
- * dependent with the recommended margin being applied.
+ * <p>The Chip is Stadium shape that has a max height designed to take no more than two lines of
+ * text of {@link Typography#TYPOGRAPHY_BUTTON} style and with minimum tap target to meet
+ * accessibility requirements. The {@link Chip} can have an icon horizontally parallel to the two
+ * lines of text. Width of chip can very, and the recommended size is screen dependent with the
+ * recommended margin being applied.
  *
  * <p>The recommended set of {@link ChipColors} styles can be obtained from {@link ChipDefaults}.,
  * e.g. {@link ChipDefaults#PRIMARY_COLORS} to get a color scheme for a primary {@link Chip}.
@@ -106,59 +91,27 @@ import java.util.Map;
  *     used inside of {@link androidx.wear.protolayout.material.layouts.PrimaryLayout}.
  */
 public class Chip implements LayoutElement {
-    /**
-     * Tool tag for Metadata in Modifiers, so we know that Box is actually a Chip with only text.
-     */
-    static final String METADATA_TAG_TEXT = "TXTCHP";
-    /** Tool tag for Metadata in Modifiers, so we know that Box is actually a Chip with icon. */
-    static final String METADATA_TAG_ICON = "ICNCHP";
-    /**
-     * Tool tag for Metadata in Modifiers, so we know that Box is actually a Chip with custom
-     * content.
-     */
-    static final String METADATA_TAG_CUSTOM_CONTENT = "CSTCHP";
+    private final androidx.wear.protolayout.materialcore.@NonNull Chip mElement;
 
-    @NonNull private final Box mElement;
-
-    Chip(@NonNull Box element) {
+    Chip(androidx.wear.protolayout.materialcore.@NonNull Chip element) {
         mElement = element;
     }
-    /** Builder class for {@link androidx.wear.protolayout.material.Chip}. */
+
+    /** Builder class for {@link Chip}. */
     public static final class Builder implements LayoutElement.Builder {
-        private static final int NOT_SET = 0;
-        private static final int TEXT = 1;
-        private static final int ICON = 2;
-        private static final int CUSTOM_CONTENT = 3;
-
-        @RestrictTo(Scope.LIBRARY)
-        @Retention(RetentionPolicy.SOURCE)
-        @IntDef({NOT_SET, TEXT, ICON, CUSTOM_CONTENT})
-        @interface ChipType {}
-
-        @NonNull private final Context mContext;
-        @Nullable private LayoutElement mCustomContent;
-        @Nullable private String mImageResourceId = null;
-        @Nullable private String mPrimaryLabel = null;
-        @Nullable private String mSecondaryLabel = null;
-        @NonNull private final Clickable mClickable;
-        @Nullable private StringProp mContentDescription = null;
-        @NonNull private ContainerDimension mWidth;
-        @NonNull private DpProp mHeight = DEFAULT_HEIGHT;
-        @NonNull private ChipColors mChipColors = PRIMARY_COLORS;
+        private final @NonNull Context mContext;
+        private @Nullable LayoutElement mCustomContent;
+        private @Nullable String mImageResourceId = null;
+        private @Nullable String mPrimaryLabel = null;
+        private @Nullable String mSecondaryLabel = null;
+        private @Nullable StringProp mContentDescription = null;
+        private @NonNull ChipColors mChipColors = PRIMARY_COLORS;
+        private @NonNull DpProp mIconSize = ICON_SIZE;
         @HorizontalAlignment private int mHorizontalAlign = HORIZONTAL_ALIGN_UNDEFINED;
         @TypographyName private int mPrimaryLabelTypography;
-        @NonNull private DpProp mHorizontalPadding = HORIZONTAL_PADDING;
         private boolean mIsScalable = true;
         private int mMaxLines = 0; // 0 indicates that is not set.
-        @NonNull private String mMetadataTag = "";
-
-        @NonNull static final Map<Integer, String> TYPE_TO_TAG = new HashMap<>();
-
-        static {
-            TYPE_TO_TAG.put(ICON, METADATA_TAG_ICON);
-            TYPE_TO_TAG.put(TEXT, METADATA_TAG_TEXT);
-            TYPE_TO_TAG.put(CUSTOM_CONTENT, METADATA_TAG_CUSTOM_CONTENT);
-        }
+        private final androidx.wear.protolayout.materialcore.Chip.@NonNull Builder mCoreBuilder;
 
         /**
          * Creates a builder for the {@link Chip} with associated action. It is required to add
@@ -174,44 +127,43 @@ public class Chip implements LayoutElement {
                 @NonNull Clickable clickable,
                 @NonNull DeviceParameters deviceParameters) {
             mContext = context;
-            mClickable = clickable;
-            mWidth =
-                    dp(
-                            (100 - 2 * DEFAULT_MARGIN_PERCENT)
-                                    * deviceParameters.getScreenWidthDp()
-                                    / 100);
+            float width =
+                    (100 - 2 * DEFAULT_MARGIN_PERCENT) * deviceParameters.getScreenWidthDp() / 100;
             mPrimaryLabelTypography = Typography.TYPOGRAPHY_BUTTON;
+            mCoreBuilder = new androidx.wear.protolayout.materialcore.Chip.Builder(clickable);
+            mCoreBuilder.setWidth(dp(width));
+            mCoreBuilder.setHorizontalPadding(HORIZONTAL_PADDING);
+            mCoreBuilder.setHeight(DEFAULT_HEIGHT);
+            mCoreBuilder.setBackgroundColor(mChipColors.getBackgroundColor());
+            mCoreBuilder.setMinimalTappableSquareLength(ChipDefaults.MIN_TAPPABLE_SQUARE_LENGTH);
+            mCoreBuilder.setIconSpacerWidth(ICON_SPACER_WIDTH);
         }
 
         /**
          * Sets the width of {@link Chip}. If not set, default value will be set to fill the screen.
          */
-        @NonNull
-        public Builder setWidth(@NonNull ContainerDimension width) {
-            mWidth = width;
+        public @NonNull Builder setWidth(@NonNull ContainerDimension width) {
+            mCoreBuilder.setWidth(width);
             return this;
         }
 
         /**
-         * Sets the width of {@link TitleChip}. If not set, default value will be set to fill the
+         * Sets the width of {@link Chip}. If not set, default value will be set to fill the
          * screen.
          */
-        @NonNull
-        public Builder setWidth(@Dimension(unit = DP) float width) {
-            mWidth = dp(width);
-            return this;
+        public @NonNull Builder setWidth(@Dimension(unit = DP) float width) {
+            return setWidth(dp(width));
         }
 
         /**
          * Sets the custom content for the {@link Chip}. Any previously added content will be
          * overridden.
          */
-        @NonNull
-        public Builder setCustomContent(@NonNull LayoutElement content) {
+        public @NonNull Builder setCustomContent(@NonNull LayoutElement content) {
             this.mCustomContent = content;
-            this.mPrimaryLabel = "";
-            this.mSecondaryLabel = "";
-            this.mImageResourceId = "";
+            this.mPrimaryLabel = null;
+            this.mSecondaryLabel = null;
+            this.mImageResourceId = null;
             return this;
         }
 
@@ -219,11 +171,8 @@ public class Chip implements LayoutElement {
          * Sets the static content description for the {@link Chip}. It is highly recommended to
          * provide this for chip containing icon.
          */
-        @NonNull
-        public Builder setContentDescription(@NonNull CharSequence contentDescription) {
-            this.mContentDescription =
-                    new StringProp.Builder(contentDescription.toString()).build();
-            return this;
+        public @NonNull Builder setContentDescription(@NonNull CharSequence contentDescription) {
+            return setContentDescription(staticString(contentDescription.toString()));
         }
 
         /**
@@ -233,8 +182,7 @@ public class Chip implements LayoutElement {
          * <p>While this field is statically accessible from 1.0, it's only bindable since version
          * 1.2 and renderers supporting version 1.2 will use the dynamic value (if set).
          */
-        @NonNull
-        public Builder setContentDescription(@NonNull StringProp contentDescription) {
+        public @NonNull Builder setContentDescription(@NonNull StringProp contentDescription) {
             this.mContentDescription = contentDescription;
             return this;
         }
@@ -244,31 +192,38 @@ public class Chip implements LayoutElement {
          * overridden. Primary label can be on 1 or 2 lines, depending on the length and existence
          * of secondary label.
          */
-        @NonNull
-        public Builder setPrimaryLabelContent(@NonNull String primaryLabel) {
+        public @NonNull Builder setPrimaryLabelContent(@NonNull String primaryLabel) {
             this.mPrimaryLabel = primaryLabel;
             this.mCustomContent = null;
             return this;
         }
 
         /**
-         * Used for creating CompactChip and TitleChip.
+         * Used for creating {@code CompactChip} and {@code TitleChip}.
          *
          * <p>Sets the font for the primary label and should only be used internally.
          */
-        @NonNull
-        Builder setPrimaryLabelTypography(@TypographyName int typography) {
+        @NonNull Builder setPrimaryLabelTypography(@TypographyName int typography) {
             this.mPrimaryLabelTypography = typography;
             return this;
         }
 
         /**
-         * Used for creating CompactChip and TitleChip.
+         * Used for creating {@code CompactChip} and {@code TitleChip}.
+         *
+         * <p>Sets the icon size and should only be used internally.
+         */
+        @NonNull Builder setIconSize(@NonNull DpProp size) {
+            this.mIconSize = size;
+            return this;
+        }
+
+        /**
+         * Used for creating {@code CompactChip} and {@code TitleChip}.
          *
          * <p>Sets whether the font for the primary label is scalable.
          */
-        @NonNull
-        Builder setIsPrimaryLabelScalable(boolean isScalable) {
+        @NonNull Builder setIsPrimaryLabelScalable(boolean isScalable) {
             this.mIsScalable = isScalable;
             return this;
         }
@@ -278,8 +233,7 @@ public class Chip implements LayoutElement {
          * be overridden. If secondary label is set, primary label must be set too with {@link
          * #setPrimaryLabelContent}.
          */
-        @NonNull
-        public Builder setSecondaryLabelContent(@NonNull String secondaryLabel) {
+        public @NonNull Builder setSecondaryLabelContent(@NonNull String secondaryLabel) {
             this.mSecondaryLabel = secondaryLabel;
             this.mCustomContent = null;
             return this;
@@ -291,8 +245,7 @@ public class Chip implements LayoutElement {
          * ChipColors}. This icon should be image with chosen alpha channel and not an actual image.
          * If icon is set, primary label must be set too with {@link #setPrimaryLabelContent}.
          */
-        @NonNull
-        public Builder setIconContent(@NonNull String imageResourceId) {
+        public @NonNull Builder setIconContent(@NonNull String imageResourceId) {
             this.mImageResourceId = imageResourceId;
             this.mCustomContent = null;
             return this;
@@ -305,9 +258,9 @@ public class Chip implements LayoutElement {
          * ChipColors#getIconColor()} will be used as color for the icon itself. If not set, {@link
          * ChipDefaults#PRIMARY_COLORS} will be used.
          */
-        @NonNull
-        public Builder setChipColors(@NonNull ChipColors chipColors) {
+        public @NonNull Builder setChipColors(@NonNull ChipColors chipColors) {
             mChipColors = chipColors;
+            mCoreBuilder.setBackgroundColor(chipColors.getBackgroundColor());
             return this;
         }
 
@@ -317,82 +270,46 @@ public class Chip implements LayoutElement {
          * HorizontalAlignment#HORIZONTAL_ALIGN_CENTER} will be used when only a primary label is
          * present. Otherwise {@link HorizontalAlignment#HORIZONTAL_ALIGN_START} will be used.
          */
-        @NonNull
-        public Builder setHorizontalAlignment(@HorizontalAlignment int horizontalAlignment) {
+        public @NonNull Builder setHorizontalAlignment(
+                @HorizontalAlignment int horizontalAlignment) {
             mHorizontalAlign = horizontalAlignment;
             return this;
         }
 
-        /** Used for creating CompactChip and TitleChip. */
-        @NonNull
-        Builder setHorizontalPadding(@NonNull DpProp horizontalPadding) {
-            this.mHorizontalPadding = horizontalPadding;
+        /** Used for creating {@code CompactChip} and {@code TitleChip}. */
+        @NonNull Builder setHorizontalPadding(@NonNull DpProp horizontalPadding) {
+            mCoreBuilder.setHorizontalPadding(horizontalPadding);
             return this;
         }
 
-        /** Used for creating CompactChip and TitleChip. */
-        @NonNull
-        Builder setHeight(@NonNull DpProp height) {
-            this.mHeight = height;
+        /** Used for creating {@code CompactChip} and {@code TitleChip}. */
+        @NonNull Builder setHeight(@NonNull DpProp height) {
+            mCoreBuilder.setHeight(height);
             return this;
         }
 
-        /** Used for creating CompactChip and TitleChip. */
-        @NonNull
-        Builder setMaxLines(int maxLines) {
+        /** Used for creating {@code CompactChip} and {@code TitleChip}. */
+        @NonNull Builder setMaxLines(int maxLines) {
             this.mMaxLines = maxLines;
             return this;
         }
 
-        /** Used for setting the correct tag in CompactChip and TitleChip. */
-        @NonNull
-        Builder setMetadataTag(@NonNull String metadataTag) {
-            this.mMetadataTag = metadataTag;
-            return this;
-        }
-
         /** Constructs and returns {@link Chip} with the provided content and look. */
-        @NonNull
         @Override
-        public Chip build() {
-            Modifiers.Builder modifiers =
-                    new Modifiers.Builder()
-                            .setClickable(mClickable)
-                            .setPadding(
-                                    new Padding.Builder()
-                                            .setStart(mHorizontalPadding)
-                                            .setEnd(mHorizontalPadding)
-                                            .build())
-                            .setBackground(
-                                    new Background.Builder()
-                                            .setColor(mChipColors.getBackgroundColor())
-                                            .setCorner(
-                                                    new Corner.Builder()
-                                                            .setRadius(radiusOf(mHeight))
-                                                            .build())
-                                            .build())
-                            .setMetadata(
-                                    new ElementMetadata.Builder()
-                                            .setTagData(getTagBytes(getCorrectMetadataTag()))
-                                            .build())
-                            .setSemantics(
-                                    new Semantics.Builder()
-                                            .setContentDescription(getCorrectContentDescription())
-                                            .build());
+        public @NonNull Chip build() {
+            mCoreBuilder.setContentDescription(getCorrectContentDescription());
+            mCoreBuilder.setHorizontalAlignment(getCorrectHorizontalAlignment());
 
-            Box.Builder element =
-                    new Box.Builder()
-                            .setWidth(mWidth)
-                            .setHeight(mHeight)
-                            .setHorizontalAlignment(getCorrectHorizontalAlignment())
-                            .addContent(getCorrectContent())
-                            .setModifiers(modifiers.build());
+            if (mCustomContent != null) {
+                mCoreBuilder.setCustomContent(mCustomContent);
+            } else {
+                setCorrectContent();
+            }
 
-            return new Chip(element.build());
+            return new Chip(mCoreBuilder.build());
         }
 
-        @NonNull
-        private StringProp getCorrectContentDescription() {
+        private @NonNull StringProp getCorrectContentDescription() {
             if (mContentDescription == null) {
                 String staticValue = "";
                 if (mPrimaryLabel != null) {
@@ -401,9 +318,7 @@ public class Chip implements LayoutElement {
                 if (mSecondaryLabel != null) {
                     staticValue += "\n" + mSecondaryLabel;
                 }
-                if (!staticValue.isEmpty()) {
-                    mContentDescription = new StringProp.Builder(staticValue).build();
-                }
+                mContentDescription = new StringProp.Builder(staticValue).build();
             }
             return checkNotNull(mContentDescription);
         }
@@ -420,23 +335,28 @@ public class Chip implements LayoutElement {
             }
         }
 
-        private String getCorrectMetadataTag() {
-            if (!mMetadataTag.isEmpty()) {
-                return mMetadataTag;
-            }
-            if (mCustomContent != null) {
-                return METADATA_TAG_CUSTOM_CONTENT;
-            }
-            if (mImageResourceId != null) {
-                return METADATA_TAG_ICON;
-            }
-            return METADATA_TAG_TEXT;
+        private boolean isIconOnly() {
+            return mPrimaryLabel == null && mSecondaryLabel == null && mCustomContent == null;
         }
 
-        @NonNull
-        private LayoutElement getCorrectContent() {
-            if (mCustomContent != null) {
-                return mCustomContent;
+        @SuppressWarnings("deprecation") // TEXT_OVERFLOW_ELLIPSIZE_END as existing API
+        private void setCorrectContent() {
+            if (mImageResourceId != null) {
+                Image icon =
+                        new Image.Builder()
+                                .setResourceId(mImageResourceId)
+                                .setWidth(mIconSize)
+                                .setHeight(mIconSize)
+                                .setColorFilter(
+                                        new ColorFilter.Builder()
+                                                .setTint(mChipColors.getIconColor())
+                                                .build())
+                                .build();
+                mCoreBuilder.setIconContent(icon);
+
+                if (isIconOnly()) {
+                    return;
+                }
             }
 
             Text mainTextElement =
@@ -446,14 +366,10 @@ public class Chip implements LayoutElement {
                             .setMaxLines(getCorrectMaxLines())
                             .setOverflow(LayoutElementBuilders.TEXT_OVERFLOW_ELLIPSIZE_END)
                             .setMultilineAlignment(LayoutElementBuilders.TEXT_ALIGN_START)
-                            .setIsScalable(mIsScalable)
+                            .setScalable(mIsScalable)
                             .build();
 
-            // Placeholder for text.
-            Column.Builder column =
-                    new Column.Builder()
-                            .setHorizontalAlignment(HORIZONTAL_ALIGN_START)
-                            .addContent(putLayoutInBox(mainTextElement).build());
+            mCoreBuilder.setPrimaryLabelContent(mainTextElement);
 
             if (mSecondaryLabel != null) {
                 Text labelTextElement =
@@ -464,32 +380,7 @@ public class Chip implements LayoutElement {
                                 .setOverflow(LayoutElementBuilders.TEXT_OVERFLOW_ELLIPSIZE_END)
                                 .setMultilineAlignment(LayoutElementBuilders.TEXT_ALIGN_START)
                                 .build();
-                column.addContent(putLayoutInBox(labelTextElement).build());
-            }
-
-            Box texts = putLayoutInBox(column.build()).build();
-            if (mImageResourceId == null) {
-                return texts;
-            } else {
-                return new Row.Builder()
-                        .addContent(
-                                new Image.Builder()
-                                        .setResourceId(mImageResourceId)
-                                        .setWidth(ICON_SIZE)
-                                        .setHeight(ICON_SIZE)
-                                        .setColorFilter(
-                                                new ColorFilter.Builder()
-                                                        .setTint(mChipColors.getIconColor())
-                                                        .build())
-                                        .build())
-                        .addContent(
-                                new Spacer.Builder()
-                                        .setHeight(mHeight)
-                                        .setWidth(ICON_SPACER_WIDTH)
-                                        .build())
-                        .addContent(texts)
-                        .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                        .build();
+                mCoreBuilder.setSecondaryLabelContent(labelTextElement);
             }
         }
 
@@ -499,42 +390,26 @@ public class Chip implements LayoutElement {
             }
             return mSecondaryLabel != null ? 1 : 2;
         }
-
-        private Box.Builder putLayoutInBox(@NonNull LayoutElement element) {
-            // Wrapped and centered content are default.
-            return new Box.Builder().addContent(element);
-        }
     }
 
-    /** Returns height of this Chip. */
-    @NonNull
-    public ContainerDimension getHeight() {
-        return checkNotNull(mElement.getHeight());
+    /** Returns the visible height of this Chip. */
+    public @NonNull ContainerDimension getHeight() {
+        return mElement.getHeight();
     }
 
     /** Returns width of this Chip. */
-    @NonNull
-    public ContainerDimension getWidth() {
-        return checkNotNull(mElement.getWidth());
+    public @NonNull ContainerDimension getWidth() {
+        return mElement.getWidth();
     }
 
     /** Returns click event action associated with this Chip. */
-    @NonNull
-    public Clickable getClickable() {
-        return checkNotNull(checkNotNull(mElement.getModifiers()).getClickable());
-    }
-
-    /** Returns background color of this Chip. */
-    @NonNull
-    private ColorProp getBackgroundColor() {
-        return checkNotNull(
-                checkNotNull(checkNotNull(mElement.getModifiers()).getBackground()).getColor());
+    public @NonNull Clickable getClickable() {
+        return mElement.getClickable();
     }
 
     /** Returns chip colors of this Chip. */
-    @NonNull
-    public ChipColors getChipColors() {
-        ColorProp backgroundColor = getBackgroundColor();
+    public @NonNull ChipColors getChipColors() {
+        ColorProp backgroundColor = mElement.getBackgroundColor();
         ColorProp contentColor = null;
         ColorProp secondaryContentColor = null;
         ColorProp iconTintColor = null;
@@ -545,10 +420,14 @@ public class Chip implements LayoutElement {
                 iconTintColor = checkNotNull(checkNotNull(icon.getColorFilter()).getTint());
             }
 
-            contentColor = checkNotNull(getPrimaryLabelContentObject()).getColor();
-            Text label = getSecondaryLabelContentObject();
-            if (label != null) {
-                secondaryContentColor = label.getColor();
+
+            Text maybePrimaryLabel = getPrimaryLabelContentObject();
+            if (maybePrimaryLabel != null) {
+                contentColor = checkNotNull(maybePrimaryLabel).getColor();
+                Text label = getSecondaryLabelContentObject();
+                if (label != null) {
+                    secondaryContentColor = label.getColor();
+                }
             }
         }
 
@@ -567,100 +446,63 @@ public class Chip implements LayoutElement {
     }
 
     /** Returns content description of this Chip. */
-    @Nullable
-    public StringProp getContentDescription() {
-        Semantics semantics = checkNotNull(mElement.getModifiers()).getSemantics();
-        if (semantics == null) {
-            return null;
-        }
-        return semantics.getContentDescription();
+    public @Nullable StringProp getContentDescription() {
+        return mElement.getContentDescription();
     }
 
     /** Returns custom content from this Chip if it has been added. Otherwise, it returns null. */
-    @Nullable
-    public LayoutElement getCustomContent() {
-        if (getMetadataTag().equals(METADATA_TAG_CUSTOM_CONTENT)) {
-            return checkNotNull(checkNotNull(mElement.getContents()).get(0));
-        }
-        return null;
+    public @Nullable LayoutElement getCustomContent() {
+        return mElement.getCustomContent();
     }
 
     /** Returns primary label from this Chip if it has been added. Otherwise, it returns null. */
-    @Nullable
-    public String getPrimaryLabelContent() {
+    public @Nullable String getPrimaryLabelContent() {
         Text primaryLabel = getPrimaryLabelContentObject();
-        return primaryLabel != null ? primaryLabel.getText() : null;
+        return primaryLabel != null ? primaryLabel.getText().getValue() : null;
     }
 
     /** Returns secondary label from this Chip if it has been added. Otherwise, it returns null. */
-    @Nullable
-    public String getSecondaryLabelContent() {
-        Text label = getSecondaryLabelContentObject();
-        return label != null ? label.getText() : null;
+    public @Nullable String getSecondaryLabelContent() {
+        Text secondaryLabel = getSecondaryLabelContentObject();
+        return secondaryLabel != null ? secondaryLabel.getText().getValue() : null;
     }
 
     /** Returns icon id from this Chip if it has been added. Otherwise, it returns null. */
-    @Nullable
-    public String getIconContent() {
+    public @Nullable String getIconContent() {
         Image icon = getIconContentObject();
         return icon != null ? checkNotNull(icon.getResourceId()).getValue() : null;
     }
 
-    @Nullable
-    private Text getPrimaryLabelContentObject() {
-        return getPrimaryOrSecondaryLabelContent(0);
+    private @Nullable Text getPrimaryLabelContentObject() {
+        LayoutElement content = mElement.getPrimaryLabelContent();
+        if (content != null) {
+            return Text.fromLayoutElement(content);
+        }
+        return null;
     }
 
-    @Nullable
-    private Text getSecondaryLabelContentObject() {
-        return getPrimaryOrSecondaryLabelContent(1);
+    private @Nullable Text getSecondaryLabelContentObject() {
+        LayoutElement content = mElement.getSecondaryLabelContent();
+        if (content != null) {
+            return Text.fromLayoutElement(content);
+        }
+        return null;
     }
 
-    @Nullable
-    private Image getIconContentObject() {
-        if (!getMetadataTag().equals(METADATA_TAG_ICON)) {
-            return null;
-        }
-        return ((Image) ((Row) mElement.getContents().get(0)).getContents().get(0));
-    }
-
-    @Nullable
-    private Text getPrimaryOrSecondaryLabelContent(int index) {
-        String metadataTag = getMetadataTag();
-        if (metadataTag.equals(METADATA_TAG_CUSTOM_CONTENT)) {
-            return null;
-        }
-        // In any other case, text (either primary or primary + label) must be present.
-        Column content;
-        if (metadataTag.equals(METADATA_TAG_ICON)) {
-            content =
-                    (Column)
-                            ((Box) ((Row) mElement.getContents().get(0)).getContents().get(2))
-                                    .getContents()
-                                    .get(0);
-        } else {
-            content = (Column) ((Box) mElement.getContents().get(0)).getContents().get(0);
-        }
-
-        // We need to check this as this can be the case when we called for label, which doesn't
-        // exist.
-        return index < content.getContents().size()
-                ? Text.fromLayoutElement(
-                        ((Box) content.getContents().get(index)).getContents().get(0))
-                : null;
+    private @Nullable Image getIconContentObject() {
+        LayoutElement content = mElement.getIconContent();
+        return content instanceof Image ? (Image) content : null;
     }
 
     /** Returns the horizontal alignment of the content in this Chip. */
     @HorizontalAlignment
     public int getHorizontalAlignment() {
-        return checkNotNull(mElement.getHorizontalAlignment()).getValue();
+        return mElement.getHorizontalAlignment();
     }
 
     /** Returns metadata tag set to this Chip. */
-    @NonNull
-    String getMetadataTag() {
-        return getMetadataTagName(
-                checkNotNull(checkNotNull(mElement.getModifiers()).getMetadata()));
+    @NonNull String getMetadataTag() {
+        return mElement.getMetadataTag();
     }
 
     /**
@@ -668,33 +510,24 @@ public class Chip implements LayoutElement {
      * content with {@code container.getContents().get(index)}) if that element can be converted to
      * Chip. Otherwise, it will return null.
      */
-    @Nullable
-    public static Chip fromLayoutElement(@NonNull LayoutElement element) {
+    public static @Nullable Chip fromLayoutElement(@NonNull LayoutElement element) {
         if (element instanceof Chip) {
             return (Chip) element;
         }
-        if (!(element instanceof Box)) {
-            return null;
-        }
-        Box boxElement = (Box) element;
-        if (!checkTag(boxElement.getModifiers(), Builder.TYPE_TO_TAG.values())) {
-            return null;
-        }
-        // Now we are sure that this element is a Chip.
-        return new Chip(boxElement);
+        androidx.wear.protolayout.materialcore.Chip coreChip =
+                androidx.wear.protolayout.materialcore.Chip.fromLayoutElement(element);
+        return coreChip == null ? null : new Chip(coreChip);
     }
 
-    @NonNull
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
-    public LayoutElementProto.LayoutElement toLayoutElementProto() {
+    public LayoutElementProto.@NonNull LayoutElement toLayoutElementProto() {
         return mElement.toLayoutElementProto();
     }
 
-    @Nullable
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
-    public Fingerprint getFingerprint() {
+    public @Nullable Fingerprint getFingerprint() {
         return mElement.getFingerprint();
     }
 }

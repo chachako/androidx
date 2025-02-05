@@ -18,33 +18,39 @@ package androidx.benchmark
 
 import android.annotation.SuppressLint
 import android.os.Build
+import android.os.Environment
 import android.util.Log
 import androidx.annotation.RestrictTo
+import androidx.benchmark.FileMover.moveTo
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.TimeZone
 
-/**
- * @hide
- */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 object Outputs {
 
     private val formatter: SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
 
     /**
-     * The intended output directory that respects the `additionalTestOutputDir`.
+     * Matches substrings to be removed from filenames.
+     *
+     * We only allow digits, ascii letters, `_` and `-` to remain.
+     *
+     * Note `-` is important for baseline profiles, see b/303034735
      */
+    private val sanitizerRegex = Regex("([^0-9a-zA-Z._-]+)")
+
+    /** The intended output directory that respects the `additionalTestOutputDir`. */
     val outputDirectory: File
 
     /**
-     * The usable output directory, given permission issues with `adb shell` on Android R.
-     * Both the app and the shell have access to this output folder.
+     * The usable output directory, given permission issues with `adb shell` on Android R. Both the
+     * app and the shell have access to this output folder.
      *
-     * This dir can be read/written by app
-     * This dir can be read by shell (see [forceFilesForShellAccessible] for API 21/22!)
+     * This dir can be read/written by app This dir can be read by shell (see
+     * [forceFilesForShellAccessible] for API 21/22!)
      */
     val dirUsableByAppAndShell: File
 
@@ -60,26 +66,29 @@ object Outputs {
 
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         @SuppressLint("NewApi")
-        dirUsableByAppAndShell = when {
-            Build.VERSION.SDK_INT >= 29 -> {
-                // On Android Q+ we are using the media directory because that is
-                // the directory that the shell has access to. Context: b/181601156
-                // Additionally, Benchmarks append user space traces to the ones produced
-                // by the Macro Benchmark run; and that is a lot simpler to do if we use the
-                // Media directory. (b/216588251)
-                context.getFirstMountedMediaDir()
+        dirUsableByAppAndShell =
+            when {
+                Build.VERSION.SDK_INT >= 29 -> {
+                    // On Android Q+ we are using the media directory because that is
+                    // the directory that the shell has access to. Context: b/181601156
+                    // Additionally, Benchmarks append user space traces to the ones produced
+                    // by the Macro Benchmark run; and that is a lot simpler to do if we use the
+                    // Media directory. (b/216588251)
+                    @Suppress("DEPRECATION")
+                    context.externalMediaDirs.firstOrNull {
+                        Environment.getExternalStorageState(it) == Environment.MEDIA_MOUNTED
+                    }
+                }
+                Build.VERSION.SDK_INT <= 22 -> {
+                    // prior to API 23, shell didn't have access to externalCacheDir
+                    context.cacheDir
+                }
+                else -> context.externalCacheDir
             }
-
-            Build.VERSION.SDK_INT <= 22 -> {
-                // prior to API 23, shell didn't have access to externalCacheDir
-                context.cacheDir
-            }
-
-            else -> context.externalCacheDir
-        } ?: throw IllegalStateException(
-            "Unable to select a directory for writing files, " +
-                "additionalTestOutputDir argument required to declare output dir."
-        )
+                ?: throw IllegalStateException(
+                    "Unable to select a directory for writing files, " +
+                        "additionalTestOutputDir argument required to declare output dir."
+                )
 
         if (forceFilesForShellAccessible) {
             // By default, shell doesn't have access to app dirs on 21/22 so we need to modify
@@ -91,27 +100,30 @@ object Outputs {
 
         Log.d(BenchmarkState.TAG, "Usable output directory: $dirUsableByAppAndShell")
 
-        outputDirectory = Arguments.additionalTestOutputDir?.let { File(it) }
-            ?: dirUsableByAppAndShell
+        outputDirectory =
+            Arguments.additionalTestOutputDir?.let { File(it) } ?: dirUsableByAppAndShell
 
         Log.d(BenchmarkState.TAG, "Output Directory: $outputDirectory")
-        outputDirectory.mkdirs()
 
         // Clear all the existing files in the output directories
-        deleteFiles { true }
+        listOf(outputDirectory, dirUsableByAppAndShell).forEach {
+            it.listFiles()?.forEach { file -> if (file.isFile) file.delete() }
+        }
+
+        // Ensure output dir is created
+        outputDirectory.mkdirs()
     }
 
     /**
      * Create a benchmark output [File] to write to.
      *
-     * This method handles reporting files to `InstrumentationStatus` to request copy,
-     * writing them in the desired output directory, and handling shell access issues on Android R.
+     * This method handles reporting files to `InstrumentationStatus` to request copy, writing them
+     * in the desired output directory, and handling shell access issues on Android R.
      *
      * @return The absolute path of the output [File].
      */
     fun writeFile(
         fileName: String,
-        reportKey: String,
         reportOnRunEndOnly: Boolean = false,
         block: (file: File) -> Unit,
     ): String {
@@ -127,12 +139,17 @@ object Outputs {
         if (dirUsableByAppAndShell != outputDirectory) {
             // We need to copy files over anytime `dirUsableByAppAndShell` is different from
             // `outputDirectory`.
-            Log.d(BenchmarkState.TAG, "Copying $file to $destination")
-            file.copyTo(destination, overwrite = true)
+            Log.d(BenchmarkState.TAG, "Moving $file to $destination")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                file.moveTo(destination, overwrite = true)
+            } else {
+                file.copyTo(destination, overwrite = true)
+                file.delete()
+            }
         }
 
         InstrumentationResults.reportAdditionalFileToCopy(
-            key = reportKey,
+            key = sanitizedName,
             absoluteFilePath = destination.absolutePath,
             reportOnRunEndOnly = reportOnRunEndOnly
         )
@@ -140,10 +157,15 @@ object Outputs {
     }
 
     fun sanitizeFilename(filename: String): String {
-        return filename
-            .replace(" ", "")
-            .replace("(", "[")
-            .replace(")", "]")
+        require(filename.length < 200) {
+            // Check length instead of sanitizing because in practice, names this long will
+            // break AGP/Studio/Desktop side tooling as well, at least on Linux.
+            // This threshold is conservative and operates on the input as, in practice, Studio
+            // tooling expands testnames into filenames a bit more than benchmark does.
+            "Filename too long (${filename.length} > 200) $filename - trim your test name, or" +
+                " parameterization string to avoid filename too long exceptions"
+        }
+        return filename.replace(sanitizerRegex, "_")
     }
 
     fun testOutputFile(filename: String): File {
@@ -156,19 +178,12 @@ object Outputs {
 
     fun relativePathFor(path: String): String {
         val hasOutputDirectoryPrefix = path.startsWith(outputDirectory.absolutePath)
-        val relativePath = when {
-            hasOutputDirectoryPrefix -> path.removePrefix("${outputDirectory.absolutePath}/")
-            else -> path.removePrefix("${dirUsableByAppAndShell.absolutePath}/")
-        }
-        check(relativePath != path) {
-            "$relativePath == $path"
-        }
+        val relativePath =
+            when {
+                hasOutputDirectoryPrefix -> path.removePrefix("${outputDirectory.absolutePath}/")
+                else -> path.removePrefix("${dirUsableByAppAndShell.absolutePath}/")
+            }
+        check(relativePath != path) { "$relativePath == $path" }
         return relativePath
-    }
-
-    fun deleteFiles(filterBlock: (File) -> (Boolean)) {
-        listOf(outputDirectory, dirUsableByAppAndShell)
-            .flatMap { it.listFiles(filterBlock)?.asList() ?: emptyList() }
-            .forEach { it.delete() }
     }
 }

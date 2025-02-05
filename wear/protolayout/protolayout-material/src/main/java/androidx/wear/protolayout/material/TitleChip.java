@@ -18,28 +18,30 @@ package androidx.wear.protolayout.material;
 
 import static androidx.annotation.Dimension.DP;
 import static androidx.wear.protolayout.DimensionBuilders.dp;
-import static androidx.wear.protolayout.LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER;
+import static androidx.wear.protolayout.LayoutElementBuilders.HORIZONTAL_ALIGN_UNDEFINED;
+import static androidx.wear.protolayout.material.ChipDefaults.ICON_SIZE;
 import static androidx.wear.protolayout.material.ChipDefaults.TITLE_HEIGHT;
 import static androidx.wear.protolayout.material.ChipDefaults.TITLE_HORIZONTAL_PADDING;
 import static androidx.wear.protolayout.material.ChipDefaults.TITLE_PRIMARY_COLORS;
-import static androidx.wear.protolayout.material.Helper.checkNotNull;
-import static androidx.wear.protolayout.material.Helper.checkTag;
+import static androidx.wear.protolayout.materialcore.Helper.checkNotNull;
+import static androidx.wear.protolayout.materialcore.Helper.staticString;
 
 import android.content.Context;
 
 import androidx.annotation.Dimension;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.RestrictTo.Scope;
 import androidx.wear.protolayout.DeviceParametersBuilders.DeviceParameters;
 import androidx.wear.protolayout.DimensionBuilders.ContainerDimension;
-import androidx.wear.protolayout.LayoutElementBuilders.Box;
 import androidx.wear.protolayout.LayoutElementBuilders.HorizontalAlignment;
 import androidx.wear.protolayout.LayoutElementBuilders.LayoutElement;
 import androidx.wear.protolayout.ModifiersBuilders.Clickable;
+import androidx.wear.protolayout.TypeBuilders.StringProp;
 import androidx.wear.protolayout.expression.Fingerprint;
 import androidx.wear.protolayout.proto.LayoutElementProto;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * ProtoLayout component {@link TitleChip} that represents clickable object with the text.
@@ -70,14 +72,11 @@ import androidx.wear.protolayout.proto.LayoutElementProto;
  * TitleChip myChip = TitleChip.fromLayoutElement(box.getContents().get(0));
  * }</pre>
  *
- * @see  androidx.wear.protolayout.material.layouts.PrimaryLayout.Builder#setContent if this
- * TitleChip is used inside of {@link androidx.wear.protolayout.material.layouts.PrimaryLayout}.
+ * @see androidx.wear.protolayout.material.layouts.PrimaryLayout.Builder#setContent if this
+ *     TitleChip is used inside of {@link androidx.wear.protolayout.material.layouts.PrimaryLayout}.
  */
 public class TitleChip implements LayoutElement {
-    /** Tool tag for Metadata in Modifiers, so we know that Box is actually a TitleChip. */
-    static final String METADATA_TAG = "TTLCHP";
-
-    @NonNull private final Chip mElement;
+    private final @NonNull Chip mElement;
 
     TitleChip(@NonNull Chip element) {
         this.mElement = element;
@@ -85,16 +84,18 @@ public class TitleChip implements LayoutElement {
 
     /** Builder class for {@link TitleChip}. */
     public static final class Builder implements LayoutElement.Builder {
-        @NonNull private final Context mContext;
-        @NonNull private final String mText;
-        @NonNull private final Clickable mClickable;
-        @NonNull private final DeviceParameters mDeviceParameters;
-        @NonNull private ChipColors mChipColors = TITLE_PRIMARY_COLORS;
-        @HorizontalAlignment private int mHorizontalAlign = HORIZONTAL_ALIGN_CENTER;
+        private final @NonNull Context mContext;
+        private final @NonNull String mText;
+        private final @NonNull Clickable mClickable;
+        private final @NonNull DeviceParameters mDeviceParameters;
+        private @NonNull ChipColors mChipColors = TITLE_PRIMARY_COLORS;
+        @HorizontalAlignment private int mHorizontalAlign = HORIZONTAL_ALIGN_UNDEFINED;
+        private @Nullable StringProp mContentDescription = null;
 
         // Indicates that the width isn't set, so it will be automatically set by Chip.Builder
         // constructor.
-        @Nullable private ContainerDimension mWidth = null;
+        private @Nullable ContainerDimension mWidth = null;
+        private @Nullable String mIconResourceId = null;
 
         /**
          * Creates a builder for the {@link TitleChip} with associated action and the given text
@@ -123,15 +124,14 @@ public class TitleChip implements LayoutElement {
          * ChipColors#getContentColor()} for the text. If not set, {@link
          * ChipDefaults#TITLE_PRIMARY_COLORS} will be used.
          */
-        @NonNull
-        public Builder setChipColors(@NonNull ChipColors chipColors) {
+        public @NonNull Builder setChipColors(@NonNull ChipColors chipColors) {
             mChipColors = chipColors;
             return this;
         }
 
         /** Sets the horizontal alignment in the chip. If not set, content will be centered. */
-        @NonNull
-        public Builder setHorizontalAlignment(@HorizontalAlignment int horizontalAlignment) {
+        public @NonNull Builder setHorizontalAlignment(
+                @HorizontalAlignment int horizontalAlignment) {
             mHorizontalAlign = horizontalAlignment;
             return this;
         }
@@ -140,8 +140,7 @@ public class TitleChip implements LayoutElement {
          * Sets the width of {@link TitleChip}. If not set, default value will be set to fill the
          * screen.
          */
-        @NonNull
-        public Builder setWidth(@NonNull ContainerDimension width) {
+        public @NonNull Builder setWidth(@NonNull ContainerDimension width) {
             mWidth = width;
             return this;
         }
@@ -150,22 +149,51 @@ public class TitleChip implements LayoutElement {
          * Sets the width of {@link TitleChip}. If not set, default value will be set to fill the
          * screen.
          */
-        @NonNull
-        public Builder setWidth(@Dimension(unit = DP) float width) {
+        public @NonNull Builder setWidth(@Dimension(unit = DP) float width) {
             mWidth = dp(width);
             return this;
         }
 
+        /**
+         * Sets the icon for the {@link TitleChip}. Provided icon will be tinted to the given
+         * content color from {@link ChipColors}. This icon should be image with chosen alpha
+         * channel that can be tinted.
+         */
+        public @NonNull Builder setIconContent(@NonNull String imageResourceId) {
+            this.mIconResourceId = imageResourceId;
+            return this;
+        }
+
+        /**
+         * Sets the static content description for the {@link TitleChip}. It is highly recommended
+         * to provide this for chip containing an icon.
+         */
+        public @NonNull Builder setContentDescription(@NonNull CharSequence contentDescription) {
+            return setContentDescription(staticString(contentDescription.toString()));
+        }
+
+        /**
+         * Sets the content description for the {@link TitleChip}. It is highly recommended to
+         * provide this for chip containing an icon.
+         *
+         * <p>While this field is statically accessible from 1.0, it's only bindable since version
+         * 1.2 and renderers supporting version 1.2 will use the dynamic value (if set).
+         */
+        public @NonNull Builder setContentDescription(@NonNull StringProp contentDescription) {
+            this.mContentDescription = contentDescription;
+            return this;
+        }
+
         /** Constructs and returns {@link TitleChip} with the provided content and look. */
-        @NonNull
         @Override
-        public TitleChip build() {
+        public @NonNull TitleChip build() {
             Chip.Builder chipBuilder =
                     new Chip.Builder(mContext, mClickable, mDeviceParameters)
-                            .setMetadataTag(METADATA_TAG)
                             .setChipColors(mChipColors)
-                            .setContentDescription(mText)
-                            .setHorizontalAlignment(mHorizontalAlign)
+                            .setContentDescription(
+                                    mContentDescription == null
+                                            ? staticString(mText)
+                                            : mContentDescription)
                             .setHeight(TITLE_HEIGHT)
                             .setMaxLines(1)
                             .setHorizontalPadding(TITLE_HORIZONTAL_PADDING)
@@ -177,31 +205,35 @@ public class TitleChip implements LayoutElement {
                 chipBuilder.setWidth(mWidth);
             }
 
+            if (mIconResourceId != null) {
+                chipBuilder.setIconContent(mIconResourceId).setIconSize(ICON_SIZE);
+            }
+
+            if (mHorizontalAlign != HORIZONTAL_ALIGN_UNDEFINED) {
+                chipBuilder.setHorizontalAlignment(mHorizontalAlign);
+            }
+
             return new TitleChip(chipBuilder.build());
         }
     }
 
     /** Returns width of this Chip. */
-    @NonNull
-    public ContainerDimension getWidth() {
+    public @NonNull ContainerDimension getWidth() {
         return mElement.getWidth();
     }
 
     /** Returns click event action associated with this Chip. */
-    @NonNull
-    public Clickable getClickable() {
+    public @NonNull Clickable getClickable() {
         return mElement.getClickable();
     }
 
     /** Returns chip color of this Chip. */
-    @NonNull
-    public ChipColors getChipColors() {
+    public @NonNull ChipColors getChipColors() {
         return mElement.getChipColors();
     }
 
     /** Returns text content of this Chip. */
-    @NonNull
-    public String getText() {
+    public @NonNull String getText() {
         return checkNotNull(mElement.getPrimaryLabelContent());
     }
 
@@ -211,9 +243,13 @@ public class TitleChip implements LayoutElement {
         return mElement.getHorizontalAlignment();
     }
 
-    /** Returns metadata tag set to this TitleChip, which should be {@link #METADATA_TAG}. */
-    @NonNull
-    String getMetadataTag() {
+    /** Returns icon id from this TitleChip if it has been added. Otherwise, it returns null. */
+    public @Nullable String getIconContent() {
+        return mElement.getIconContent();
+    }
+
+    /** Returns metadata tag set to this TitleChip. */
+    @NonNull String getMetadataTag() {
         return mElement.getMetadataTag();
     }
 
@@ -222,33 +258,29 @@ public class TitleChip implements LayoutElement {
      * content with {@code container.getContents().get(index)}) if that element can be converted to
      * TitleChip. Otherwise, it will return null.
      */
-    @Nullable
-    public static TitleChip fromLayoutElement(@NonNull LayoutElement element) {
+    public static @Nullable TitleChip fromLayoutElement(@NonNull LayoutElement element) {
         if (element instanceof TitleChip) {
             return (TitleChip) element;
         }
-        if (!(element instanceof Box)) {
-            return null;
-        }
-        Box boxElement = (Box) element;
-        if (!checkTag(boxElement.getModifiers(), METADATA_TAG)) {
-            return null;
-        }
-        // Now we are sure that this element is a TitleChip.
-        return new TitleChip(new Chip(boxElement));
+        androidx.wear.protolayout.materialcore.Chip coreChip =
+                androidx.wear.protolayout.materialcore.Chip.fromLayoutElement(element);
+        return coreChip == null ? null : new TitleChip(new Chip(coreChip));
+    }
+
+    /** Returns content description of this TitleChip. */
+    public @Nullable StringProp getContentDescription() {
+        return mElement.getContentDescription();
     }
 
     @RestrictTo(Scope.LIBRARY_GROUP)
-    @NonNull
     @Override
-    public LayoutElementProto.LayoutElement toLayoutElementProto() {
+    public LayoutElementProto.@NonNull LayoutElement toLayoutElementProto() {
         return mElement.toLayoutElementProto();
     }
 
-    @Nullable
     @Override
     @RestrictTo(Scope.LIBRARY_GROUP)
-    public Fingerprint getFingerprint() {
+    public @Nullable Fingerprint getFingerprint() {
         return mElement.getFingerprint();
     }
 }

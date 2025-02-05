@@ -16,15 +16,17 @@
 
 package androidx.appsearch.localstorage.stats;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.RestrictTo;
+import androidx.appsearch.annotation.CanIgnoreReturnValue;
 import androidx.appsearch.app.AppSearchResult;
 import androidx.core.util.Preconditions;
+
+import org.jspecify.annotations.NonNull;
 
 /**
  * Class holds detailed stats for Optimize.
  *
- * @hide
+ * @exportToFramework:hide
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public final class OptimizeStats {
@@ -156,72 +158,73 @@ public final class OptimizeStats {
         long mNativeTimeSinceLastOptimizeMillis;
 
         /** Sets the status code. */
-        @NonNull
-        public Builder setStatusCode(@AppSearchResult.ResultCode int statusCode) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setStatusCode(@AppSearchResult.ResultCode int statusCode) {
             mStatusCode = statusCode;
             return this;
         }
 
         /** Sets total latency in millis. */
-        @NonNull
-        public Builder setTotalLatencyMillis(int totalLatencyMillis) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setTotalLatencyMillis(int totalLatencyMillis) {
             mTotalLatencyMillis = totalLatencyMillis;
             return this;
         }
 
         /** Sets native latency in millis. */
-        @NonNull
-        public Builder setNativeLatencyMillis(int nativeLatencyMillis) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setNativeLatencyMillis(int nativeLatencyMillis) {
             mNativeLatencyMillis = nativeLatencyMillis;
             return this;
         }
 
         /** Sets time used to optimize the document store. */
-        @NonNull
-        public Builder setDocumentStoreOptimizeLatencyMillis(
+        @CanIgnoreReturnValue
+        public @NonNull Builder setDocumentStoreOptimizeLatencyMillis(
                 int documentStoreOptimizeLatencyMillis) {
             mNativeDocumentStoreOptimizeLatencyMillis = documentStoreOptimizeLatencyMillis;
             return this;
         }
 
         /** Sets time used to restore the index. */
-        @NonNull
-        public Builder setIndexRestorationLatencyMillis(int indexRestorationLatencyMillis) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setIndexRestorationLatencyMillis(
+                int indexRestorationLatencyMillis) {
             mNativeIndexRestorationLatencyMillis = indexRestorationLatencyMillis;
             return this;
         }
 
         /** Sets number of documents before the optimization. */
-        @NonNull
-        public Builder setOriginalDocumentCount(int originalDocumentCount) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setOriginalDocumentCount(int originalDocumentCount) {
             mNativeOriginalDocumentCount = originalDocumentCount;
             return this;
         }
 
         /** Sets number of documents deleted during the optimization. */
-        @NonNull
-        public Builder setDeletedDocumentCount(int deletedDocumentCount) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setDeletedDocumentCount(int deletedDocumentCount) {
             mNativeDeletedDocumentCount = deletedDocumentCount;
             return this;
         }
 
         /** Sets number of documents expired during the optimization. */
-        @NonNull
-        public Builder setExpiredDocumentCount(int expiredDocumentCount) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setExpiredDocumentCount(int expiredDocumentCount) {
             mNativeExpiredDocumentCount = expiredDocumentCount;
             return this;
         }
 
         /** Sets Storage size in bytes before optimization. */
-        @NonNull
-        public Builder setStorageSizeBeforeBytes(long storageSizeBeforeBytes) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setStorageSizeBeforeBytes(long storageSizeBeforeBytes) {
             mNativeStorageSizeBeforeBytes = storageSizeBeforeBytes;
             return this;
         }
 
         /** Sets storage size in bytes after optimization. */
-        @NonNull
-        public Builder setStorageSizeAfterBytes(long storageSizeAfterBytes) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setStorageSizeAfterBytes(long storageSizeAfterBytes) {
             mNativeStorageSizeAfterBytes = storageSizeAfterBytes;
             return this;
         }
@@ -229,15 +232,14 @@ public final class OptimizeStats {
         /**
          * Sets the amount the time since the last optimize ran calculated using wall clock time.
          */
-        @NonNull
-        public Builder setTimeSinceLastOptimizeMillis(long timeSinceLastOptimizeMillis) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setTimeSinceLastOptimizeMillis(long timeSinceLastOptimizeMillis) {
             mNativeTimeSinceLastOptimizeMillis = timeSinceLastOptimizeMillis;
             return this;
         }
 
         /** Creates a {@link OptimizeStats}. */
-        @NonNull
-        public OptimizeStats build() {
+        public @NonNull OptimizeStats build() {
             return new OptimizeStats(/* builder= */ this);
         }
     }

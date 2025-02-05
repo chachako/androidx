@@ -20,15 +20,14 @@ import androidx.compose.foundation.text.DefaultMinLines
 import androidx.compose.ui.graphics.ColorProducer
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.platform.InspectorInfo
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 
 /**
- * Modifier element for any Text with [AnnotatedString] or [onTextLayout] parameters
+ * Modifier element for String based text
  *
- * This is slower than [TextAnnotatedStringElement]
+ * This is faster than [TextAnnotatedStringElement]
  */
 internal class TextStringSimpleElement(
     private val text: String,
@@ -41,34 +40,31 @@ internal class TextStringSimpleElement(
     private val color: ColorProducer? = null
 ) : ModifierNodeElement<TextStringSimpleNode>() {
 
-    override fun create(): TextStringSimpleNode = TextStringSimpleNode(
-        text,
-        style,
-        fontFamilyResolver,
-        overflow,
-        softWrap,
-        maxLines,
-        minLines,
-        color
-    )
+    override fun create(): TextStringSimpleNode =
+        TextStringSimpleNode(
+            text,
+            style,
+            fontFamilyResolver,
+            overflow,
+            softWrap,
+            maxLines,
+            minLines,
+            color
+        )
 
     override fun update(node: TextStringSimpleNode) {
         node.doInvalidations(
-            drawChanged = node.updateDraw(
-                color,
-                style
-            ),
-            textChanged = node.updateText(
-                text = text
-            ),
-            layoutChanged = node.updateLayoutRelatedArgs(
-                style = style,
-                minLines = minLines,
-                maxLines = maxLines,
-                softWrap = softWrap,
-                fontFamilyResolver = fontFamilyResolver,
-                overflow = overflow
-            )
+            drawChanged = node.updateDraw(color, style),
+            textChanged = node.updateText(text = text),
+            layoutChanged =
+                node.updateLayoutRelatedArgs(
+                    style = style,
+                    minLines = minLines,
+                    maxLines = maxLines,
+                    softWrap = softWrap,
+                    fontFamilyResolver = fontFamilyResolver,
+                    overflow = overflow
+                )
         )
     }
 

@@ -1,16 +1,25 @@
+/**
+ * This file was created using the `create_project.py` script located in the
+ * `<AndroidX root>/development/project-creator` directory.
+ *
+ * Please use that script when creating a new project, rather than copying an existing project and
+ * modifying its settings.
+ */
 plugins {
     id("AndroidXPlugin")
     id("com.android.application")
 }
 
 dependencies {
+    api(libs.jspecify)
     implementation(project(":appcompat:appcompat"))
     implementation(project(":mediarouter:mediarouter"))
+    implementation(project(":preference:preference"))
     implementation(project(":recyclerview:recyclerview"))
     implementation(project(":concurrent:concurrent-futures"))
+    implementation(project(":swiperefreshlayout:swiperefreshlayout"))
 
     implementation(libs.material)
-    implementation(libs.multidex)
     implementation(libs.guava)
 }
 
@@ -21,12 +30,12 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt")
         }
     }
+    compileSdk = 35
     defaultConfig {
         vectorDrawables.useSupportLibrary = true
-        multiDexEnabled true
     }
     lint {
         baseline = file("lint-baseline.xml")
     }
-    namespace "com.example.androidx.mediarouting"
+    namespace = "com.example.androidx.mediarouting"
 }

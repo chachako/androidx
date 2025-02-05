@@ -22,23 +22,19 @@ import android.graphics.SurfaceTexture
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
-import android.os.Message
 import androidx.annotation.AnyThread
 import androidx.annotation.RequiresApi
 import androidx.annotation.WorkerThread
 import androidx.graphics.SurfaceTextureRenderer
+import androidx.graphics.utils.post
 
 /**
  * Class responsible for the producing side of SurfaceTextures that are rendered with content
- * provided from a canvas. This class handles proxying all requests to an internal thread
- * as well as throttles production of frames based on consumption rate.
+ * provided from a canvas. This class handles proxying all requests to an internal thread as well as
+ * throttles production of frames based on consumption rate.
  */
 @RequiresApi(Build.VERSION_CODES.Q)
-internal class TextureProducer<T>(
-    val width: Int,
-    val height: Int,
-    val callbacks: Callbacks<T>
-) {
+internal class TextureProducer<T>(val width: Int, val height: Int, val callbacks: Callbacks<T>) {
 
     interface Callbacks<T> {
         fun onTextureAvailable(texture: SurfaceTexture)
@@ -47,45 +43,16 @@ internal class TextureProducer<T>(
     }
 
     private var mIsReleasing = false
-    private var mReleaseCallback: (() -> Unit)? = null
     private val mParams = ArrayList<T>()
     private var mPendingRenders = 0
     private val mProducerThread = HandlerThread("producerThread").apply { start() }
-    @Suppress("UNCHECKED_CAST")
-    private val mProducerHandler = Handler(mProducerThread.looper) { message ->
-        when (message.what) {
-            RENDER -> {
-                if (!mIsReleasing) {
-                    val param = message.obj as T
-                    mParams.add(param)
-                    doRender()
-                }
-            }
-            TEXTURE_CONSUMED -> {
-                mPendingRenders--
-                if (mIsReleasing && !isPendingRendering()) {
-                    teardown()
-                } else {
-                    doRender()
-                }
-            }
-            CANCEL_PENDING -> {
-                mParams.clear()
-            }
-            RELEASE -> {
-                mIsReleasing = true
-                mReleaseCallback = message.obj as (() -> Unit)?
-                if (!isPendingRendering()) {
-                    teardown()
-                }
-            }
-        }
-        true
-    }
+    private val mProducerHandler = Handler(mProducerThread.looper)
+
+    private val mCancelPendingRunnable = Runnable { mParams.clear() }
 
     @WorkerThread // ProducerThread
-    private fun teardown() {
-        mReleaseCallback?.invoke()
+    private fun teardown(releaseCallback: (() -> Unit)? = null) {
+        releaseCallback?.invoke()
         mSurfaceTextureRenderer.release()
         mProducerThread.quit()
     }
@@ -93,14 +60,10 @@ internal class TextureProducer<T>(
     @WorkerThread // ProducerThread
     private fun isPendingRendering() = mParams.isNotEmpty() || mPendingRenders > 0
 
-    private val mRenderNode = RenderNode("node").apply {
-        setPosition(
-            0,
-            0,
-            this@TextureProducer.width,
-            this@TextureProducer.height
-        )
-    }
+    private val mRenderNode =
+        RenderNode("node").apply {
+            setPosition(0, 0, this@TextureProducer.width, this@TextureProducer.height)
+        }
 
     private inline fun RenderNode.record(block: (Canvas) -> Unit) {
         val canvas = beginRecording()
@@ -108,14 +71,10 @@ internal class TextureProducer<T>(
         endRecording()
     }
 
-    private val mSurfaceTextureRenderer = SurfaceTextureRenderer(
-        mRenderNode,
-        width,
-        height,
-        mProducerHandler
-    ) { texture ->
-        callbacks.onTextureAvailable(texture)
-    }
+    private val mSurfaceTextureRenderer =
+        SurfaceTextureRenderer(mRenderNode, width, height, mProducerHandler) { texture ->
+            callbacks.onTextureAvailable(texture)
+        }
 
     @WorkerThread // ProducerThread
     private fun doRender() {
@@ -135,18 +94,30 @@ internal class TextureProducer<T>(
 
     @AnyThread
     fun requestRender(param: T) {
-        mProducerHandler.sendMessage(Message.obtain(mProducerHandler, RENDER, param))
+        mProducerHandler.post(RENDER) {
+            if (!mIsReleasing) {
+                mParams.add(param)
+                doRender()
+            }
+        }
     }
 
     @AnyThread
     fun cancelPending() {
-        mProducerHandler.removeMessages(RENDER)
-        mProducerHandler.sendMessage(Message.obtain(mProducerHandler, CANCEL_PENDING))
+        mProducerHandler.removeCallbacksAndMessages(RENDER)
+        mProducerHandler.post(CANCEL_PENDING, mCancelPendingRunnable)
     }
 
     @AnyThread
     fun markTextureConsumed() {
-        mProducerHandler.sendMessage(Message.obtain(mProducerHandler, TEXTURE_CONSUMED))
+        mProducerHandler.post(TEXTURE_CONSUMED) {
+            mPendingRenders--
+            if (mIsReleasing && !isPendingRendering()) {
+                teardown()
+            } else {
+                doRender()
+            }
+        }
     }
 
     @AnyThread
@@ -164,19 +135,22 @@ internal class TextureProducer<T>(
         if (cancelPending) {
             cancelPending()
         }
-        mProducerHandler.sendMessage(Message.obtain(mProducerHandler, RELEASE, onReleaseComplete))
+        mProducerHandler.post(RELEASE) {
+            mIsReleasing = true
+            if (!isPendingRendering()) {
+                teardown(onReleaseComplete)
+            }
+        }
     }
 
     private companion object {
         /**
-         * Constant to indicate a request to render new content into a SurfaceTexture
-         * for consumption.
+         * Constant to indicate a request to render new content into a SurfaceTexture for
+         * consumption.
          */
         const val RENDER = 0
 
-        /**
-         * Constant to indicate that a previously produced frame has been consumed.
-         */
+        /** Constant to indicate that a previously produced frame has been consumed. */
         const val TEXTURE_CONSUMED = 1
 
         /**
@@ -185,15 +159,13 @@ internal class TextureProducer<T>(
          */
         const val CANCEL_PENDING = 2
 
-        /**
-         * Release the resources associated with this [TextureProducer] instance
-         */
+        /** Release the resources associated with this [TextureProducer] instance */
         const val RELEASE = 3
 
         /**
-         * Maximum number of frames to produce before the producer pauses. Subsequent attempts
-         * to render will batch parameters and continue to produce frames when the consumer
-         * signals that the corresponding textures have been consumed.
+         * Maximum number of frames to produce before the producer pauses. Subsequent attempts to
+         * render will batch parameters and continue to produce frames when the consumer signals
+         * that the corresponding textures have been consumed.
          */
         const val MAX_PENDING_RENDERS = 2
     }

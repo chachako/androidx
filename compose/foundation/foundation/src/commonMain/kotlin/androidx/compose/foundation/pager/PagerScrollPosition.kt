@@ -17,83 +17,120 @@
 package androidx.compose.foundation.pager
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.lazy.layout.LazyLayoutNearestRangeState
+import androidx.compose.foundation.lazy.layout.findIndexByKey
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshots.Snapshot
+import kotlin.math.roundToLong
 
 /**
- * Contains the current scroll position represented by the first visible page  and the first
- * visible page scroll offset.
+ * Contains the current scroll position represented by the first visible page and the first visible
+ * page scroll offset.
  */
-@OptIn(ExperimentalFoundationApi::class)
 internal class PagerScrollPosition(
-    initialPage: Int = 0,
-    initialScrollOffset: Int = 0
+    currentPage: Int = 0,
+    currentPageOffsetFraction: Float = 0.0f,
+    val state: PagerState
 ) {
-    var firstVisiblePage by mutableIntStateOf(initialPage)
-    var currentPage by mutableIntStateOf(initialPage)
+    var currentPage by mutableIntStateOf(currentPage)
+        private set
 
-    var scrollOffset by mutableIntStateOf(initialScrollOffset)
+    var currentPageOffsetFraction by mutableFloatStateOf(currentPageOffsetFraction)
         private set
 
     private var hadFirstNotEmptyLayout = false
 
-    /** The last know key of the page at [firstVisiblePage] position. */
-    private var lastKnownFirstPageKey: Any? = null
+    /** The last know key of the page at [currentPage] position. */
+    private var lastKnownCurrentPageKey: Any? = null
 
-    /**
-     * Updates the current scroll position based on the results of the last measurement.
-     */
+    val nearestRangeState =
+        LazyLayoutNearestRangeState(
+            currentPage,
+            NearestItemsSlidingWindowSize,
+            NearestItemsExtraItemCount
+        )
+
+    /** Updates the current scroll position based on the results of the last measurement. */
     fun updateFromMeasureResult(measureResult: PagerMeasureResult) {
-        lastKnownFirstPageKey = measureResult.firstVisiblePage?.key
+        lastKnownCurrentPageKey = measureResult.currentPage?.key
         // we ignore the index and offset from measureResult until we get at least one
         // measurement with real pages. otherwise the initial index and scroll passed to the
         // state would be lost and overridden with zeros.
-        if (hadFirstNotEmptyLayout || measureResult.pagesCount > 0) {
+        if (hadFirstNotEmptyLayout || measureResult.visiblePagesInfo.isNotEmpty()) {
             hadFirstNotEmptyLayout = true
-            val scrollOffset = measureResult.firstVisiblePageOffset
-            check(scrollOffset >= 0f) { "scrollOffset should be non-negative ($scrollOffset)" }
 
-            Snapshot.withoutReadObservation {
-                update(
-                    measureResult.firstVisiblePage?.index ?: 0,
-                    scrollOffset
-                )
-                measureResult.closestPageToSnapPosition?.index?.let {
-                    if (it != this.currentPage) {
-                        this.currentPage = it
-                    }
-                }
-            }
+            update(measureResult.currentPage?.index ?: 0, measureResult.currentPageOffsetFraction)
         }
     }
 
     /**
      * Updates the scroll position - the passed values will be used as a start position for
-     * composing the pages during the next measure pass and will be updated by the real
-     * position calculated during the measurement. This means that there is no guarantee that
-     * exactly this index and offset will be applied as it is possible that:
-     * a) there will be no page at this index in reality
-     * b) page at this index will be smaller than the asked scrollOffset, which means we would
-     * switch to the next page
-     * c) there will be not enough pages to fill the viewport after the requested index, so we
-     * would have to compose few elements before the asked index, changing the first visible page.
+     * composing the pages during the next measure pass and will be updated by the real position
+     * calculated during the measurement. This means that there is no guarantee that exactly this
+     * index and offset will be applied as it is possible that: a) there will be no page at this
+     * index in reality b) page at this index will be smaller than the asked scrollOffset, which
+     * means we would switch to the next page c) there will be not enough pages to fill the viewport
+     * after the requested index, so we would have to compose few elements before the asked index,
+     * changing the first visible page.
      */
-    fun requestPosition(index: Int, scrollOffset: Int) {
-        update(index, scrollOffset)
+    fun requestPositionAndForgetLastKnownKey(index: Int, offsetFraction: Float) {
+        update(index, offsetFraction)
         // clear the stored key as we have a direct request to scroll to [index] position and the
         // next [checkIfFirstVisibleItemWasMoved] shouldn't override this.
-        lastKnownFirstPageKey = null
+        lastKnownCurrentPageKey = null
     }
 
-    private fun update(index: Int, scrollOffset: Int) {
-        require(index >= 0f) { "Index should be non-negative ($index)" }
-        if (index != this.firstVisiblePage) {
-            this.firstVisiblePage = index
+    @OptIn(ExperimentalFoundationApi::class)
+    fun matchPageWithKey(itemProvider: PagerLazyLayoutItemProvider, index: Int): Int {
+        val newIndex = itemProvider.findIndexByKey(lastKnownCurrentPageKey, index)
+        if (index != newIndex) {
+            currentPage = newIndex
+            nearestRangeState.update(index)
         }
-        if (scrollOffset != this.scrollOffset) {
-            this.scrollOffset = scrollOffset
-        }
+        return newIndex
     }
+
+    private fun update(page: Int, offsetFraction: Float) {
+        currentPage = page
+        nearestRangeState.update(page)
+        currentPageOffsetFraction = offsetFraction
+    }
+
+    fun updateCurrentPageOffsetFraction(offsetFraction: Float) {
+        currentPageOffsetFraction = offsetFraction
+    }
+
+    fun applyScrollDelta(delta: Int) {
+        debugLog { "Applying Delta=$delta" }
+        val fractionUpdate =
+            if (state.pageSizeWithSpacing == 0) {
+                0.0f
+            } else {
+                delta / state.pageSizeWithSpacing.toFloat()
+            }
+        currentPageOffsetFraction += fractionUpdate
+    }
+}
+
+/**
+ * We use the idea of sliding window as an optimization, so user can scroll up to this number of
+ * items until we have to regenerate the key to index map.
+ */
+internal const val NearestItemsSlidingWindowSize = 30
+
+/** The minimum amount of items near the current first visible item we want to have mapping for. */
+internal const val NearestItemsExtraItemCount = 100
+
+private inline fun debugLog(generateMsg: () -> String) {
+    if (PagerDebugConfig.ScrollPosition) {
+        println("PagerScrollPosition: ${generateMsg()}")
+    }
+}
+
+internal fun PagerState.currentAbsoluteScrollOffset(): Long {
+    val currentPageOffset = currentPage.toLong() * pageSizeWithSpacing
+    val offsetFraction = (currentPageOffsetFraction * pageSizeWithSpacing).roundToLong()
+    return currentPageOffset + offsetFraction
 }

@@ -18,10 +18,10 @@ package androidx.compose.material
 
 import androidx.compose.ui.text.PlatformTextStyle
 
-private const val DefaultIncludeFontPadding = true
+private const val DefaultIncludeFontPadding = false
 
 @Suppress("DEPRECATION")
-private val DefaultPlatformTextStyle = PlatformTextStyle(
-    includeFontPadding = DefaultIncludeFontPadding
-)
+private val DefaultPlatformTextStyle =
+    PlatformTextStyle(includeFontPadding = DefaultIncludeFontPadding)
+
 internal actual fun defaultPlatformTextStyle(): PlatformTextStyle? = DefaultPlatformTextStyle

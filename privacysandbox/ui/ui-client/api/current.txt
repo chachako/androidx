@@ -1,47 +1,41 @@
 // Signature format: 4.0
 package androidx.privacysandbox.ui.client {
 
-  @RequiresApi(android.os.Build.VERSION_CODES.TIRAMISU) public final class SandboxedUiAdapterFactory {
+  public final class SandboxedUiAdapterFactory {
     method public androidx.privacysandbox.ui.core.SandboxedUiAdapter createFromCoreLibInfo(android.os.Bundle coreLibInfo);
     field public static final androidx.privacysandbox.ui.client.SandboxedUiAdapterFactory INSTANCE;
+  }
+
+  @SuppressCompatibility @androidx.privacysandbox.ui.core.ExperimentalFeatures.SharedUiPresentationApi public final class SharedUiAdapterFactory {
+    method @SuppressCompatibility @androidx.privacysandbox.ui.core.ExperimentalFeatures.SharedUiPresentationApi public androidx.privacysandbox.ui.core.SharedUiAdapter createFromCoreLibInfo(android.os.Bundle coreLibInfo);
+    field public static final androidx.privacysandbox.ui.client.SharedUiAdapterFactory INSTANCE;
   }
 
 }
 
 package androidx.privacysandbox.ui.client.view {
 
-  public abstract sealed class SandboxedSdkUiSessionState {
+  public final class SandboxedSdkUiKt {
+    method @androidx.compose.runtime.Composable public static void SandboxedSdkUi(androidx.privacysandbox.ui.core.SandboxedUiAdapter sandboxedUiAdapter, optional androidx.compose.ui.Modifier modifier, optional boolean providerUiOnTop, optional androidx.privacysandbox.ui.client.view.SandboxedSdkViewEventListener? sandboxedSdkViewEventListener);
   }
 
-  public static final class SandboxedSdkUiSessionState.Active extends androidx.privacysandbox.ui.client.view.SandboxedSdkUiSessionState {
-    field public static final androidx.privacysandbox.ui.client.view.SandboxedSdkUiSessionState.Active INSTANCE;
-  }
-
-  public static final class SandboxedSdkUiSessionState.Error extends androidx.privacysandbox.ui.client.view.SandboxedSdkUiSessionState {
-    ctor public SandboxedSdkUiSessionState.Error(Throwable throwable);
-    method public Throwable getThrowable();
-    property public final Throwable throwable;
-  }
-
-  public static final class SandboxedSdkUiSessionState.Idle extends androidx.privacysandbox.ui.client.view.SandboxedSdkUiSessionState {
-    field public static final androidx.privacysandbox.ui.client.view.SandboxedSdkUiSessionState.Idle INSTANCE;
-  }
-
-  public static final class SandboxedSdkUiSessionState.Loading extends androidx.privacysandbox.ui.client.view.SandboxedSdkUiSessionState {
-    field public static final androidx.privacysandbox.ui.client.view.SandboxedSdkUiSessionState.Loading INSTANCE;
-  }
-
-  public fun interface SandboxedSdkUiSessionStateChangedListener {
-    method public void onStateChanged(androidx.privacysandbox.ui.client.view.SandboxedSdkUiSessionState state);
-  }
-
-  @RequiresApi(android.os.Build.VERSION_CODES.TIRAMISU) public final class SandboxedSdkView extends android.view.ViewGroup {
-    ctor public SandboxedSdkView(android.content.Context context, optional android.util.AttributeSet? attrs);
+  public final class SandboxedSdkView extends android.view.ViewGroup {
     ctor public SandboxedSdkView(android.content.Context context);
-    method public void addStateChangedListener(androidx.privacysandbox.ui.client.view.SandboxedSdkUiSessionStateChangedListener stateChangedListener);
-    method public void removeStateChangedListener(androidx.privacysandbox.ui.client.view.SandboxedSdkUiSessionStateChangedListener stateChangedListener);
+    ctor public SandboxedSdkView(android.content.Context context, optional android.util.AttributeSet? attrs);
+    method public void orderProviderUiAboveClientUi(boolean providerUiOnTop);
     method public void setAdapter(androidx.privacysandbox.ui.core.SandboxedUiAdapter sandboxedUiAdapter);
-    method public void setZOrderOnTopAndEnableUserInteraction(boolean setOnTop);
+    method public void setEventListener(androidx.privacysandbox.ui.client.view.SandboxedSdkViewEventListener? eventListener);
+  }
+
+  public interface SandboxedSdkViewEventListener {
+    method public void onUiClosed();
+    method public void onUiDisplayed();
+    method public void onUiError(Throwable error);
+  }
+
+  @SuppressCompatibility @androidx.privacysandbox.ui.core.ExperimentalFeatures.SharedUiPresentationApi public final class SharedUiContainer extends android.view.ViewGroup {
+    ctor public SharedUiContainer(android.content.Context context);
+    ctor public SharedUiContainer(android.content.Context context, optional android.util.AttributeSet? attrs);
   }
 
 }

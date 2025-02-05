@@ -19,17 +19,14 @@ package androidx.camera.camera2.internal;
 import static android.hardware.camera2.CameraCharacteristics.REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE;
 
 import static androidx.camera.core.DynamicRange.BIT_DEPTH_UNSPECIFIED;
-import static androidx.camera.core.DynamicRange.FORMAT_HDR_UNSPECIFIED;
-import static androidx.camera.core.DynamicRange.FORMAT_SDR;
-import static androidx.camera.core.DynamicRange.FORMAT_UNSPECIFIED;
+import static androidx.camera.core.DynamicRange.ENCODING_HDR_UNSPECIFIED;
+import static androidx.camera.core.DynamicRange.ENCODING_SDR;
+import static androidx.camera.core.DynamicRange.ENCODING_UNSPECIFIED;
 
 import android.hardware.camera2.CameraCharacteristics;
 import android.os.Build;
 import android.text.TextUtils;
 
-import androidx.annotation.DoNotInline;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.camera.camera2.internal.compat.CameraCharacteristicsCompat;
 import androidx.camera.camera2.internal.compat.params.DynamicRangeConversions;
@@ -39,6 +36,9 @@ import androidx.camera.core.Logger;
 import androidx.camera.core.impl.AttachedSurfaceInfo;
 import androidx.camera.core.impl.UseCaseConfig;
 import androidx.core.util.Preconditions;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,11 +53,8 @@ import java.util.Set;
 /**
  * Resolves and validates dynamic ranges based on device capabilities and constraints.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 final class DynamicRangeResolver {
     private static final String TAG = "DynamicRangeResolver";
-    private static final DynamicRange DYNAMIC_RANGE_HLG10 =
-            new DynamicRange(DynamicRange.FORMAT_HLG, DynamicRange.BIT_DEPTH_10_BIT);
     private final CameraCharacteristicsCompat mCharacteristics;
     private final DynamicRangesCompat mDynamicRangesInfo;
     private final boolean mIs10BitSupported;
@@ -120,7 +117,7 @@ final class DynamicRangeResolver {
         // We want to resolve and validate dynamic ranges in the following order:
         // 1. First validate fully defined dynamic ranges. No resolving is required here.
         // 2. Resolve and validate partially defined dynamic ranges, such as HDR_UNSPECIFIED or
-        // dynamic ranges with concrete formats but BIT_DEPTH_UNSPECIFIED. We can now potentially
+        // dynamic ranges with concrete encodings but BIT_DEPTH_UNSPECIFIED. We can now potentially
         // infer a dynamic range based on constraints of the fully defined dynamic ranges or
         // the list of supported HDR dynamic ranges.
         // 3. Finally, resolve and validate UNSPECIFIED dynamic ranges. These will resolve
@@ -207,15 +204,14 @@ final class DynamicRangeResolver {
      * <p>This uses existing fully-specified dynamic ranges, new fully-specified dynamic ranges,
      * dynamic range constraints and the list of supported dynamic ranges to exhaustively search
      * for a dynamic range if the requested dynamic range is not fully specified, i.e., it has an
-     * UNSPECIFIED format or UNSPECIFIED bitrate.
+     * UNSPECIFIED encoding or UNSPECIFIED bitrate.
      *
      * <p>Any dynamic range returned will be validated to work according to the constraints and
      * supported dynamic ranges provided.
      *
      * <p>If no suitable dynamic range can be found, returns {@code null}.
      */
-    @Nullable
-    private DynamicRange resolveDynamicRange(
+    private @Nullable DynamicRange resolveDynamicRange(
             @NonNull DynamicRange requestedDynamicRange,
             @NonNull Set<DynamicRange> combinedConstraints,
             @NonNull Set<DynamicRange> orderedExistingDynamicRanges,
@@ -223,7 +219,7 @@ final class DynamicRangeResolver {
             @NonNull String rangeOwnerLabel) {
 
         // Dynamic range is already resolved if it is fully specified.
-        if (isFullySpecified(requestedDynamicRange)) {
+        if (requestedDynamicRange.isFullySpecified()) {
             if (combinedConstraints.contains(requestedDynamicRange)) {
                 return requestedDynamicRange;
             }
@@ -234,9 +230,9 @@ final class DynamicRangeResolver {
 
         // Explicitly handle the case of SDR with unspecified bit depth.
         // SDR is only supported as 8-bit.
-        int requestedFormat = requestedDynamicRange.getFormat();
+        int requestedEncoding = requestedDynamicRange.getEncoding();
         int requestedBitDepth = requestedDynamicRange.getBitDepth();
-        if (requestedFormat == FORMAT_SDR && requestedBitDepth == BIT_DEPTH_UNSPECIFIED) {
+        if (requestedEncoding == ENCODING_SDR && requestedBitDepth == BIT_DEPTH_UNSPECIFIED) {
             if (combinedConstraints.contains(DynamicRange.SDR)) {
                 return DynamicRange.SDR;
             }
@@ -279,9 +275,9 @@ final class DynamicRangeResolver {
             return DynamicRange.SDR;
         }
 
-        // For unspecified HDR formats (10-bit or unspecified bit depth), we have a
-        // couple options: the device recommended 10-bit format or the mandated HLG format.
-        if (requestedFormat == FORMAT_HDR_UNSPECIFIED && (
+        // For unspecified HDR encodings (10-bit or unspecified bit depth), we have a
+        // couple options: the device recommended 10-bit encoding or the mandated HLG encoding.
+        if (requestedEncoding == ENCODING_HDR_UNSPECIFIED && (
                 requestedBitDepth == DynamicRange.BIT_DEPTH_10_BIT
                         || requestedBitDepth == BIT_DEPTH_UNSPECIFIED)) {
             Set<DynamicRange> hdrDefaultRanges = new LinkedHashSet<>();
@@ -296,7 +292,7 @@ final class DynamicRangeResolver {
             }
             // Attempt to fall back to HLG since it is a mandated required 10-bit
             // dynamic range.
-            hdrDefaultRanges.add(DYNAMIC_RANGE_HLG10);
+            hdrDefaultRanges.add(DynamicRange.HLG_10_BIT);
             resolvedDynamicRange = findSupportedHdrMatch(requestedDynamicRange,
                     hdrDefaultRanges, combinedConstraints);
             if (resolvedDynamicRange != null) {
@@ -317,7 +313,7 @@ final class DynamicRangeResolver {
         // The constraints are unordered, so it may not produce an "optimal" dynamic range. This
         // works for 8-bit, 10-bit or partially specified HDR dynamic ranges.
         for (DynamicRange candidateRange : combinedConstraints) {
-            Preconditions.checkState(isFullySpecified(candidateRange), "Candidate dynamic"
+            Preconditions.checkState(candidateRange.isFullySpecified(), "Candidate dynamic"
                     + " range must be fully specified.");
 
             // Only consider HDR constraints
@@ -379,23 +375,22 @@ final class DynamicRangeResolver {
         }
     }
 
-    @Nullable
-    private static DynamicRange findSupportedHdrMatch(@NonNull DynamicRange rangeToMatch,
+    private static @Nullable DynamicRange findSupportedHdrMatch(@NonNull DynamicRange rangeToMatch,
             @NonNull Collection<DynamicRange> fullySpecifiedCandidateRanges,
             @NonNull Set<DynamicRange> constraints) {
         // SDR can never match with HDR
-        if (rangeToMatch.getFormat() == FORMAT_SDR) {
+        if (rangeToMatch.getEncoding() == ENCODING_SDR) {
             return null;
         }
 
         for (DynamicRange candidateRange : fullySpecifiedCandidateRanges) {
             Preconditions.checkNotNull(candidateRange,
                     "Fully specified DynamicRange cannot be null.");
-            int candidateFormat = candidateRange.getFormat();
-            Preconditions.checkState(isFullySpecified(candidateRange),
-                    "Fully specified DynamicRange must have fully defined format.");
-            if (candidateFormat == FORMAT_SDR) {
-                // Only consider HDR formats
+            int candidateEncoding = candidateRange.getEncoding();
+            Preconditions.checkState(candidateRange.isFullySpecified(),
+                    "Fully specified DynamicRange must have fully defined encoding.");
+            if (candidateEncoding == ENCODING_SDR) {
+                // Only consider HDR encodings
                 continue;
             }
 
@@ -412,9 +407,7 @@ final class DynamicRangeResolver {
             // This class is not instantiable.
         }
 
-        @DoNotInline
-        @Nullable
-        static DynamicRange getRecommended10BitDynamicRange(
+        static @Nullable DynamicRange getRecommended10BitDynamicRange(
                 @NonNull CameraCharacteristicsCompat characteristics) {
             Long recommendedProfile =
                     characteristics.get(REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE);
@@ -426,30 +419,21 @@ final class DynamicRangeResolver {
     }
 
     /**
-     * Returns {@code true} if the dynamic range is FORMAT_UNSPECIFIED and BIT_DEPTH_UNSPECIFIED.
+     * Returns {@code true} if the dynamic range is ENCODING_UNSPECIFIED and BIT_DEPTH_UNSPECIFIED.
      */
     private static boolean isFullyUnspecified(@NonNull DynamicRange dynamicRange) {
         return Objects.equals(dynamicRange, DynamicRange.UNSPECIFIED);
     }
 
     /**
-     * Returns {@code true} if both the format and bit depth are not unspecified types.
-     */
-    private static boolean isFullySpecified(@NonNull DynamicRange dynamicRange) {
-        return dynamicRange.getFormat() != FORMAT_UNSPECIFIED
-                && dynamicRange.getFormat() != FORMAT_HDR_UNSPECIFIED
-                && dynamicRange.getBitDepth() != BIT_DEPTH_UNSPECIFIED;
-    }
-
-    /**
-     * Returns {@code true} if the dynamic range has an unspecified HDR format, a concrete
-     * format with unspecified bit depth, or a concrete bit depth.
+     * Returns {@code true} if the dynamic range has an unspecified HDR encoding, a concrete
+     * encoding with unspecified bit depth, or a concrete bit depth.
      */
     private static boolean isPartiallySpecified(@NonNull DynamicRange dynamicRange) {
-        return dynamicRange.getFormat() == FORMAT_HDR_UNSPECIFIED || (
-                dynamicRange.getFormat() != FORMAT_UNSPECIFIED
+        return dynamicRange.getEncoding() == ENCODING_HDR_UNSPECIFIED || (
+                dynamicRange.getEncoding() != ENCODING_UNSPECIFIED
                         && dynamicRange.getBitDepth() == BIT_DEPTH_UNSPECIFIED) || (
-                                dynamicRange.getFormat() == FORMAT_UNSPECIFIED
+                                dynamicRange.getEncoding() == ENCODING_UNSPECIFIED
                                         && dynamicRange.getBitDepth() != BIT_DEPTH_UNSPECIFIED);
     }
 
@@ -487,16 +471,16 @@ final class DynamicRangeResolver {
      */
     private static boolean canResolve(@NonNull DynamicRange testRange,
             @NonNull DynamicRange fullySpecifiedRange) {
-        Preconditions.checkState(isFullySpecified(fullySpecifiedRange), "Fully specified range is"
+        Preconditions.checkState(fullySpecifiedRange.isFullySpecified(), "Fully specified range is"
                 + " not actually fully specified.");
-        if (testRange.getFormat() == FORMAT_HDR_UNSPECIFIED
-                && fullySpecifiedRange.getFormat() == FORMAT_SDR) {
+        if (testRange.getEncoding() == ENCODING_HDR_UNSPECIFIED
+                && fullySpecifiedRange.getEncoding() == ENCODING_SDR) {
             return false;
         }
 
-        if (testRange.getFormat() != FORMAT_HDR_UNSPECIFIED
-                && testRange.getFormat() != FORMAT_UNSPECIFIED
-                && testRange.getFormat() != fullySpecifiedRange.getFormat()) {
+        if (testRange.getEncoding() != ENCODING_HDR_UNSPECIFIED
+                && testRange.getEncoding() != ENCODING_UNSPECIFIED
+                && testRange.getEncoding() != fullySpecifiedRange.getEncoding()) {
             return false;
         }
 

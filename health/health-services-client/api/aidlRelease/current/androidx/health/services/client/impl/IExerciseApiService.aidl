@@ -32,7 +32,7 @@
 // later when a module using the interface is updated, e.g., Mainline modules.
 
 package androidx.health.services.client.impl;
-/* @hide */
+@JavaPassthrough(annotation="@androidx.annotation.RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY)")
 interface IExerciseApiService {
   int getApiVersion() = 0;
   void prepareExercise(in androidx.health.services.client.impl.request.PrepareExerciseRequest prepareExerciseRequest, androidx.health.services.client.impl.internal.IStatusCallback statusCallback) = 14;
@@ -51,5 +51,7 @@ interface IExerciseApiService {
   androidx.health.services.client.impl.response.ExerciseCapabilitiesResponse getCapabilities(in androidx.health.services.client.impl.request.CapabilitiesRequest request) = 11;
   void flushExercise(in androidx.health.services.client.impl.request.FlushRequest request, in androidx.health.services.client.impl.internal.IStatusCallback statusCallback) = 12;
   void updateExerciseTypeConfigForActiveExercise(in androidx.health.services.client.impl.request.UpdateExerciseTypeConfigRequest updateExerciseTypeConfigRequest, androidx.health.services.client.impl.internal.IStatusCallback statuscallback) = 16;
+  void addDebouncedGoalToActiveExercise(in androidx.health.services.client.impl.request.DebouncedGoalRequest request, androidx.health.services.client.impl.internal.IStatusCallback statusCallback) = 22;
+  void removeDebouncedGoalFromActiveExercise(in androidx.health.services.client.impl.request.DebouncedGoalRequest request, androidx.health.services.client.impl.internal.IStatusCallback statusCallback) = 23;
   const int API_VERSION = 4;
 }

@@ -41,10 +41,8 @@ dependencies {
 }
 
 android {
-    defaultConfig {
-        // Change the APK name to match the *testapp regex we use to pick up APKs for testing as
-        // part of CI.
-        archivesBaseName = "glance-appwidget-demos-testapp"
-    }
-    namespace "androidx.glance.appwidget.demos"
+    namespace = "androidx.glance.appwidget.demos"
+    // TODO(b/313699418): need to update compose.runtime version to 1.6.0+ in glance-appwidget
+    experimentalProperties["android.lint.useK2Uast"] = false
+    compileSdk = 35
 }

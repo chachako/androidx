@@ -16,6 +16,8 @@
 
 package androidx.wear.protolayout.expression;
 
+import static androidx.wear.protolayout.expression.DynamicBuilders.dynamicInt32FromProto;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertThrows;
@@ -23,6 +25,7 @@ import static org.junit.Assert.assertThrows;
 import androidx.wear.protolayout.expression.DynamicBuilders.DynamicFloat;
 import androidx.wear.protolayout.expression.DynamicBuilders.DynamicInt32;
 import androidx.wear.protolayout.expression.proto.DynamicProto;
+import androidx.wear.protolayout.proto.FingerprintProto.NodeFingerprint;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,7 +51,7 @@ public final class DynamicInt32Test {
 
     @Test
     public void stateEntryValueInt32() {
-        DynamicInt32 stateInt32 = DynamicInt32.fromState(STATE_KEY);
+        DynamicInt32 stateInt32 = DynamicInt32.from(new AppDataKey<>(STATE_KEY));
 
         assertThat(stateInt32.toDynamicInt32Proto().getStateSource().getSourceKey())
                 .isEqualTo(STATE_KEY);
@@ -56,8 +59,8 @@ public final class DynamicInt32Test {
 
     @Test
     public void stateToString() {
-        assertThat(DynamicInt32.fromState("key").toString())
-                .isEqualTo("StateInt32Source{sourceKey=key}");
+        assertThat(DynamicInt32.from(new AppDataKey<>("key")).toString())
+                .isEqualTo("StateInt32Source{sourceKey=key, sourceNamespace=}");
     }
 
     @Test
@@ -127,11 +130,11 @@ public final class DynamicInt32Test {
                                 .toString())
                 .isEqualTo(
                         "Int32FormatOp{input=FixedInt32{value=1}, minIntegerDigits=2,"
-                            + " groupingUsed=true}");
+                                + " groupingUsed=true}");
     }
 
     @Test
-    public void validProto() {
+    public void fromByteArray_validProto() {
         DynamicInt32 from = DynamicInt32.constant(CONSTANT_VALUE);
         DynamicInt32 to = DynamicInt32.fromByteArray(from.toDynamicInt32ByteArray());
 
@@ -139,8 +142,79 @@ public final class DynamicInt32Test {
     }
 
     @Test
-    public void invalidProto() {
+    public void fromByteArray_invalidProto() {
         assertThrows(
                 IllegalArgumentException.class, () -> DynamicInt32.fromByteArray(new byte[] {1}));
+    }
+
+    @Test
+    public void fromByteArray_existingByteArray() {
+        DynamicInt32 from = DynamicInt32.constant(CONSTANT_VALUE);
+        byte[] buffer = new byte[100];
+        int written = from.toDynamicInt32ByteArray(buffer, 10, 50);
+
+        DynamicInt32 to = DynamicInt32.fromByteArray(buffer, 10, written);
+
+        assertThat(to.toDynamicInt32Proto().getFixed().getValue()).isEqualTo(CONSTANT_VALUE);
+    }
+
+    @Test
+    public void fromByteArray_existingByteArrayTooSmall() {
+        DynamicInt32 from = DynamicInt32.constant(CONSTANT_VALUE);
+        byte[] buffer = new byte[100];
+        int written = from.toDynamicInt32ByteArray(buffer);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicInt32.fromByteArray(buffer, 0, written - 1));
+    }
+
+    @Test
+    public void fromByteArray_existingByteArrayTooLarge() {
+        DynamicInt32 from = DynamicInt32.constant(CONSTANT_VALUE);
+        byte[] buffer = new byte[100];
+        int written = from.toDynamicInt32ByteArray(buffer);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicInt32.fromByteArray(buffer, 0, written + 1));
+    }
+
+    @Test
+    public void toByteArray_existingByteArrayTooSmall() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicInt32.constant(CONSTANT_VALUE).toDynamicInt32ByteArray(new byte[1]));
+    }
+
+    @Test
+    public void toByteArray_existingByteArraySameSize() {
+        DynamicInt32 from = DynamicInt32.constant(CONSTANT_VALUE);
+
+        assertThat(from.toDynamicInt32ByteArray(new byte[100]))
+                .isEqualTo(from.toDynamicInt32ByteArray().length);
+    }
+
+    @Test
+    public void serializing_deserializing_withFingerprint() {
+        DynamicInt32 from = DynamicInt32.constant(CONSTANT_VALUE);
+        NodeFingerprint fingerprint = from.getFingerprint().toProto();
+
+        DynamicProto.DynamicInt32 to = from.toDynamicInt32Proto(true);
+        assertThat(to.getFingerprint()).isEqualTo(fingerprint);
+
+        DynamicInt32 back = dynamicInt32FromProto(to);
+        assertThat(back.getFingerprint().toProto()).isEqualTo(fingerprint);
+    }
+
+    @Test
+    public void toByteArray_fromByteArray_withFingerprint() {
+        DynamicInt32 from = DynamicInt32.constant(CONSTANT_VALUE);
+        byte[] buffer = from.toDynamicInt32ByteArray();
+        DynamicProto.DynamicInt32 toProto =
+                DynamicInt32.fromByteArray(buffer).toDynamicInt32Proto(true);
+
+        assertThat(toProto.getFixed().getValue()).isEqualTo(CONSTANT_VALUE);
+        assertThat(toProto.getFingerprint()).isEqualTo(from.getFingerprint().toProto());
     }
 }

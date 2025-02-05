@@ -20,7 +20,6 @@
     <uses-sdk tools:overrideLibrary="android_libs.ub_uiautomator, androidx.test.uiautomator" />
 
     <application
-        android:name="androidx.multidex.MultiDexApplication"
         android:exported="true"
         android:supportsRtl="true"
         android:theme="@style/TestActivityTheme">
@@ -51,6 +50,7 @@
 
         <activity
             android:name="androidx.core.view.ViewCompatActivity"
+            android:theme="@android:style/Theme.NoTitleBar"
             android:exported="true" />
 
         <activity
@@ -118,6 +118,16 @@
             android:theme="@android:style/Theme.Light.NoTitleBar" />
 
         <activity
+            android:name="androidx.core.view.LightSystemBarsActivity"
+            android:exported="true"
+            android:theme="@style/LightSystemBarsTheme" />
+
+        <activity
+            android:name="androidx.core.view.DarkSystemBarsActivity"
+            android:exported="true"
+            android:theme="@style/DarkSystemBarsTheme" />
+
+        <activity
             android:name="androidx.core.view.WindowInsetsCompatActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Light.NoTitleBar" />
@@ -137,7 +147,16 @@
             android:exported="true" />
 
         <activity
+            android:name="androidx.core.view.inputmethod.ImeSecondarySplitViewCompatTestActivity"
+            android:exported="true" />
+
+        <activity
             android:name="androidx.core.view.inputmethod.ImeSecondarySplitTestActivity"
+            android:exported="true" />
+
+        <activity
+            android:name="androidx.core.app.GrammaticalInfectionActivity"
+            android:configChanges="grammaticalGender"
             android:exported="true" />
 
         <activity-alias

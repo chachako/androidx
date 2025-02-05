@@ -21,16 +21,14 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Parcelable;
-import android.util.Log;
 import android.util.SparseArray;
 
-import androidx.annotation.DoNotInline;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
@@ -55,8 +53,7 @@ public final class BundleCompat {
      * <p>
      * Compatibility behavior:
      * <ul>
-     *     <li>{@link BuildCompat#isAtLeastU() Android U and later}, this method matches platform
-     *     behavior.
+     *     <li>SDK 34 and above, this method matches platform behavior.
      *     <li>SDK 33 and below, the object type is checked after deserialization.
      * </ul>
      *
@@ -66,11 +63,11 @@ public final class BundleCompat {
      * @param clazz The type of the object expected
      * @return a Parcelable value, or {@code null}
      */
-    @Nullable
     @SuppressWarnings({"deprecation", "unchecked"})
-    public static <T> T getParcelable(@NonNull Bundle in, @Nullable String key,
+    public static <T> @Nullable T getParcelable(@NonNull Bundle in, @Nullable String key,
             @NonNull Class<T> clazz) {
-        if (Build.VERSION.SDK_INT >= 33) {
+        // Even though API was introduced in 33, we use 34 as 33 is bugged in some scenarios.
+        if (Build.VERSION.SDK_INT >= 34) {
             return Api33Impl.getParcelable(in, key, clazz);
         } else {
             T parcelable = in.getParcelable(key);
@@ -92,8 +89,7 @@ public final class BundleCompat {
      * <p>
      * Compatibility behavior:
      * <ul>
-     *     <li>{@link BuildCompat#isAtLeastU() Android U and later}, this method matches platform
-     *     behavior.
+     *     <li>SDK 34 and above, this method matches platform behavior.
      *     <li>SDK 33 and below, this method will not check the array elements' types.
      * </ul>
      *
@@ -102,12 +98,12 @@ public final class BundleCompat {
      * @param clazz The type of the items inside the array. This is only verified when unparceling.
      * @return a Parcelable[] value, or {@code null}
      */
-    @Nullable
     @SuppressWarnings({"deprecation"})
     @SuppressLint({"ArrayReturn", "NullableCollection"})
-    public static Parcelable[] getParcelableArray(@NonNull Bundle in, @Nullable String key,
-            @NonNull Class<? extends Parcelable> clazz) {
-        if (Build.VERSION.SDK_INT >= 33) {
+    public static Parcelable @Nullable [] getParcelableArray(@NonNull Bundle in,
+            @Nullable String key, @NonNull Class<? extends Parcelable> clazz) {
+        // Even though API was introduced in 33, we use 34 as 33 is bugged in some scenarios.
+        if (Build.VERSION.SDK_INT >= 34) {
             return Api33Impl.getParcelableArray(in, key, clazz);
         } else {
             return in.getParcelableArray(key);
@@ -128,8 +124,7 @@ public final class BundleCompat {
      * <p>
      * Compatibility behavior:
      * <ul>
-     *     <li>{@link BuildCompat#isAtLeastU() Android U and later}, this method matches platform
-     *     behavior.
+     *     <li>SDK 34 and above, this method matches platform behavior.
      *     <li>SDK 33 and below, this method will not check the list elements' types.
      * </ul>
      *
@@ -139,12 +134,12 @@ public final class BundleCompat {
      *     unparceling.
      * @return an ArrayList<T> value, or {@code null}
      */
-    @Nullable
     @SuppressWarnings({"deprecation", "unchecked"})
     @SuppressLint({"ConcreteCollection", "NullableCollection"})
-    public static  <T> ArrayList<T> getParcelableArrayList(@NonNull Bundle in, @Nullable String key,
-            @NonNull Class<? extends T> clazz) {
-        if (Build.VERSION.SDK_INT >= 33) {
+    public static  <T> @Nullable ArrayList<T> getParcelableArrayList(@NonNull Bundle in,
+            @Nullable String key, @NonNull Class<? extends T> clazz) {
+        // Even though API was introduced in 33, we use 34 as 33 is bugged in some scenarios.
+        if (Build.VERSION.SDK_INT >= 34) {
             return Api33Impl.getParcelableArrayList(in, key, clazz);
         } else {
             return (ArrayList<T>) in.getParcelableArrayList(key);
@@ -161,8 +156,7 @@ public final class BundleCompat {
      *
      * Compatibility behavior:
      * <ul>
-     *     <li>{@link BuildCompat#isAtLeastU() Android U and later}, this method matches platform
-     *     behavior.
+     *     <li>SDK 34 and above, this method matches platform behavior.
      *     <li>SDK 33 and below, this method will not check the array elements' types.
      * </ul>
      *
@@ -173,10 +167,9 @@ public final class BundleCompat {
      * @return a SparseArray of T values, or null
      */
     @SuppressWarnings({"deprecation", "unchecked"})
-    @Nullable
-    public static <T> SparseArray<T> getSparseParcelableArray(@NonNull Bundle in,
+    public static <T> @Nullable SparseArray<T> getSparseParcelableArray(@NonNull Bundle in,
             @Nullable String key, @NonNull Class<? extends T> clazz) {
-        if (Build.VERSION.SDK_INT >= 33) {
+        if (Build.VERSION.SDK_INT >= 34) {
             return Api33Impl.getSparseParcelableArray(in, key, clazz);
         } else {
             return (SparseArray<T>) in.getSparseParcelableArray(key);
@@ -190,14 +183,13 @@ public final class BundleCompat {
      * @param bundle The bundle to get the {@link IBinder}.
      * @param key The key to use while getting the {@link IBinder}.
      * @return The {@link IBinder} that was obtained.
+     *
+     * @deprecated Use {@link Bundle#getBinder(String)} directly.
      */
-    @Nullable
-    public static IBinder getBinder(@NonNull Bundle bundle, @Nullable String key) {
-        if (Build.VERSION.SDK_INT >= 18) {
-            return Api18Impl.getBinder(bundle, key);
-        } else {
-            return BeforeApi18Impl.getBinder(bundle, key);
-        }
+    @androidx.annotation.ReplaceWith(expression = "bundle.getBinder(key)")
+    @Deprecated
+    public static @Nullable IBinder getBinder(@NonNull Bundle bundle, @Nullable String key) {
+        return bundle.getBinder(key);
     }
 
     /**
@@ -207,13 +199,43 @@ public final class BundleCompat {
      * @param bundle The bundle to insert the {@link IBinder}.
      * @param key The key to use while putting the {@link IBinder}.
      * @param binder The {@link IBinder} to put.
+     *
+     * @deprecated Use {@link Bundle#putBinder(String, IBinder)} directly.
      */
+    @androidx.annotation.ReplaceWith(expression = "bundle.putBinder(key, binder)")
+    @Deprecated
     public static void putBinder(@NonNull Bundle bundle, @Nullable String key,
             @Nullable IBinder binder) {
-        if (Build.VERSION.SDK_INT >= 18) {
-            Api18Impl.putBinder(bundle, key, binder);
+        bundle.putBinder(key, binder);
+    }
+
+    /**
+     * Returns the value associated with the given key or {@code null} if:
+     * <ul>
+     *     <li>No mapping of the desired type exists for the given key.
+     *     <li>A {@code null} value is explicitly associated with the key.
+     *     <li>The object is not of type {@code clazz}.
+     * </ul>
+     * Compatibility behavior:
+     * <ul>
+     *     <li>SDK 34 and above, this method matches platform behavior.
+     *     <li>SDK 33 and below, the object type is checked after deserialization.
+     * </ul>
+     *
+     *
+     * @param in The bundle to retrieve from.
+     * @param key a String, or {@code null}
+     * @param clazz The type of the object expected
+     * @return a Serializable value, or {@code null}
+     */
+    @SuppressWarnings({"deprecation", "unchecked"})
+    public static <T extends Serializable> @Nullable T getSerializable(@NonNull Bundle in,
+            @Nullable String key, @NonNull Class<T> clazz) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            return Api33Impl.getSerializable(in, key, clazz);
         } else {
-            BeforeApi18Impl.putBinder(bundle, key, binder);
+            Serializable serializable = in.getSerializable(key);
+            return clazz.isInstance(serializable) ? (T) serializable : null;
         }
     }
 
@@ -223,108 +245,29 @@ public final class BundleCompat {
             // This class is non-instantiable.
         }
 
-        @DoNotInline
         static <T> T getParcelable(@NonNull Bundle in, @Nullable String key,
                 @NonNull Class<T> clazz) {
             return in.getParcelable(key, clazz);
         }
 
-        @DoNotInline
         static <T> T[] getParcelableArray(@NonNull Bundle in, @Nullable String key,
                 @NonNull Class<T> clazz) {
             return in.getParcelableArray(key, clazz);
         }
 
-        @DoNotInline
         static <T> ArrayList<T> getParcelableArrayList(@NonNull Bundle in, @Nullable String key,
                 @NonNull Class<? extends T> clazz) {
             return in.getParcelableArrayList(key, clazz);
         }
 
-        @DoNotInline
         static <T> SparseArray<T> getSparseParcelableArray(@NonNull Bundle in, @Nullable String key,
                 @NonNull Class<? extends T> clazz) {
             return in.getSparseParcelableArray(key, clazz);
         }
-    }
 
-    @RequiresApi(18)
-    static class Api18Impl {
-        private Api18Impl() {
-            // This class is not instantiable.
-        }
-
-        @DoNotInline
-        static IBinder getBinder(Bundle bundle, String key) {
-            return bundle.getBinder(key);
-        }
-
-        @DoNotInline
-        static void putBinder(Bundle bundle, String key, IBinder value) {
-            bundle.putBinder(key, value);
-        }
-    }
-
-    @SuppressLint("BanUncheckedReflection") // Only called prior to API 18
-    static class BeforeApi18Impl {
-        private static final String TAG = "BundleCompat";
-
-        private static Method sGetIBinderMethod;
-        private static boolean sGetIBinderMethodFetched;
-
-        private static Method sPutIBinderMethod;
-        private static boolean sPutIBinderMethodFetched;
-
-        private BeforeApi18Impl() {
-            // This class is not instantiable.
-        }
-
-        @SuppressWarnings("JavaReflectionMemberAccess")
-        public static IBinder getBinder(Bundle bundle, String key) {
-            if (!sGetIBinderMethodFetched) {
-                try {
-                    sGetIBinderMethod = Bundle.class.getMethod("getIBinder", String.class);
-                    sGetIBinderMethod.setAccessible(true);
-                } catch (NoSuchMethodException e) {
-                    Log.i(TAG, "Failed to retrieve getIBinder method", e);
-                }
-                sGetIBinderMethodFetched = true;
-            }
-
-            if (sGetIBinderMethod != null) {
-                try {
-                    return (IBinder) sGetIBinderMethod.invoke(bundle, key);
-                } catch (InvocationTargetException | IllegalAccessException
-                         | IllegalArgumentException e) {
-                    Log.i(TAG, "Failed to invoke getIBinder via reflection", e);
-                    sGetIBinderMethod = null;
-                }
-            }
-            return null;
-        }
-
-        @SuppressWarnings("JavaReflectionMemberAccess")
-        public static void putBinder(Bundle bundle, String key, IBinder binder) {
-            if (!sPutIBinderMethodFetched) {
-                try {
-                    sPutIBinderMethod =
-                            Bundle.class.getMethod("putIBinder", String.class, IBinder.class);
-                    sPutIBinderMethod.setAccessible(true);
-                } catch (NoSuchMethodException e) {
-                    Log.i(TAG, "Failed to retrieve putIBinder method", e);
-                }
-                sPutIBinderMethodFetched = true;
-            }
-
-            if (sPutIBinderMethod != null) {
-                try {
-                    sPutIBinderMethod.invoke(bundle, key, binder);
-                } catch (InvocationTargetException | IllegalAccessException
-                         | IllegalArgumentException e) {
-                    Log.i(TAG, "Failed to invoke putIBinder via reflection", e);
-                    sPutIBinderMethod = null;
-                }
-            }
+        static <T extends Serializable> T getSerializable(@NonNull Bundle in, @Nullable String key,
+                @NonNull Class<T> clazz) {
+            return in.getSerializable(key, clazz);
         }
     }
 }

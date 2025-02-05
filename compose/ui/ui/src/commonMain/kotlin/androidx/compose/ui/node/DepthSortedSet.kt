@@ -16,66 +16,74 @@
 
 package androidx.compose.ui.node
 
+import androidx.collection.MutableObjectIntMap
+import androidx.collection.mutableObjectIntMapOf
+import androidx.compose.ui.internal.checkPrecondition
+
+private val DepthComparator: Comparator<LayoutNode> =
+    object : Comparator<LayoutNode> {
+        override fun compare(a: LayoutNode, b: LayoutNode): Int {
+            val depthDiff = a.depth.compareTo(b.depth)
+            if (depthDiff != 0) {
+                return depthDiff
+            }
+            return a.hashCode().compareTo(b.hashCode())
+        }
+    }
+
 /**
- * The set of [LayoutNode]s which orders items by their [LayoutNode.depth] and
- * allows modifications(additions and removals) while we iterate through it via [popEach].
- * While [LayoutNode] is added to the set it should always be:
+ * The set of [LayoutNode]s which orders items by their [LayoutNode.depth] and allows
+ * modifications(additions and removals) while we iterate through it via [popEach]. While
+ * [LayoutNode] is added to the set it should always be:
  * 1) attached [LayoutNode.isAttached] == true
- * 2) maintaining the same [LayoutNode.depth]
- * as any of this modifications can break the comparator's contract which can cause
- * to not find the item in the tree set, which we previously added.
+ * 2) maintaining the same [LayoutNode.depth] as any of this modifications can break the
+ *    comparator's contract which can cause to not find the item in the tree set, which we
+ *    previously added.
  */
-internal class DepthSortedSet(
-    private val extraAssertions: Boolean
-) {
+internal class DepthSortedSet(private val extraAssertions: Boolean) {
     // stores the depth used when the node was added into the set so we can assert it wasn't
     // changed since then. we need to enforce this as changing the depth can break the contract
     // used in comparator for building the tree in TreeSet.
     // Created and used only when extraAssertions == true
-    private val mapOfOriginalDepth by lazy(LazyThreadSafetyMode.NONE) {
-        mutableMapOf<LayoutNode, Int>()
-    }
-    private val DepthComparator: Comparator<LayoutNode> = object : Comparator<LayoutNode> {
-        override fun compare(l1: LayoutNode, l2: LayoutNode): Int {
-            val depthDiff = l1.depth.compareTo(l2.depth)
-            if (depthDiff != 0) {
-                return depthDiff
-            }
-            return l1.hashCode().compareTo(l2.hashCode())
-        }
-    }
-    private val set = TreeSet(DepthComparator)
+    private var mapOfOriginalDepth: MutableObjectIntMap<LayoutNode>? = null
+
+    private val set = SortedSet(DepthComparator)
 
     fun contains(node: LayoutNode): Boolean {
         val contains = set.contains(node)
         if (extraAssertions) {
-            check(contains == mapOfOriginalDepth.containsKey(node))
+            checkPrecondition(contains == safeMapOfOriginalDepth().containsKey(node)) {
+                "inconsistency in TreeSet"
+            }
         }
         return contains
     }
 
     fun add(node: LayoutNode) {
-        check(node.isAttached)
+        checkPrecondition(node.isAttached) { "DepthSortedSet.add called on an unattached node" }
         if (extraAssertions) {
-            val usedDepth = mapOfOriginalDepth[node]
-            if (usedDepth == null) {
-                mapOfOriginalDepth[node] = node.depth
+            val map = safeMapOfOriginalDepth()
+            val usedDepth = map.getOrDefault(node, Int.MAX_VALUE)
+            if (usedDepth == Int.MAX_VALUE) {
+                map[node] = node.depth
             } else {
-                check(usedDepth == node.depth)
+                checkPrecondition(usedDepth == node.depth) { "invalid node depth" }
             }
         }
         set.add(node)
     }
 
     fun remove(node: LayoutNode): Boolean {
-        check(node.isAttached)
+        checkPrecondition(node.isAttached) { "DepthSortedSet.remove called on an unattached node" }
         val contains = set.remove(node)
         if (extraAssertions) {
-            val usedDepth = mapOfOriginalDepth.remove(node)
-            if (contains) {
-                check(usedDepth == node.depth)
-            } else {
-                check(usedDepth == null)
+            val map = safeMapOfOriginalDepth()
+            if (map.contains(node)) {
+                val usedDepth = map[node]
+                map.remove(node)
+                checkPrecondition(usedDepth == if (contains) node.depth else Int.MAX_VALUE) {
+                    "invalid node depth"
+                }
             }
         }
         return contains
@@ -96,8 +104,14 @@ internal class DepthSortedSet(
 
     fun isEmpty(): Boolean = set.isEmpty()
 
-    @Suppress("NOTHING_TO_INLINE")
-    inline fun isNotEmpty(): Boolean = !isEmpty()
+    @Suppress("NOTHING_TO_INLINE") inline fun isNotEmpty(): Boolean = !isEmpty()
+
+    private fun safeMapOfOriginalDepth(): MutableObjectIntMap<LayoutNode> {
+        if (mapOfOriginalDepth == null) {
+            mapOfOriginalDepth = mutableObjectIntMapOf()
+        }
+        return mapOfOriginalDepth!!
+    }
 
     override fun toString(): String {
         return set.toString()
@@ -121,9 +135,7 @@ internal class DepthSortedSetsForDifferentPasses(extraAssertions: Boolean) {
         }
     }
 
-    /**
-     * Checks if the node exists in either set.
-     */
+    /** Checks if the node exists in either set. */
     fun contains(node: LayoutNode): Boolean = lookaheadSet.contains(node) || set.contains(node)
 
     /**
@@ -137,6 +149,7 @@ internal class DepthSortedSetsForDifferentPasses(extraAssertions: Boolean) {
     fun add(node: LayoutNode, affectsLookahead: Boolean) {
         if (affectsLookahead) {
             lookaheadSet.add(node)
+            set.add(node)
         } else {
             if (!lookaheadSet.contains(node)) {
                 // Only add the node to set if it's not already in the lookahead set. Nodes in
@@ -147,11 +160,12 @@ internal class DepthSortedSetsForDifferentPasses(extraAssertions: Boolean) {
     }
 
     fun remove(node: LayoutNode, affectsLookahead: Boolean): Boolean {
-        val contains = if (affectsLookahead) {
-            lookaheadSet.remove(node)
-        } else {
-            set.remove(node)
-        }
+        val contains =
+            if (affectsLookahead) {
+                lookaheadSet.remove(node)
+            } else {
+                set.remove(node)
+            }
         return contains
     }
 
@@ -168,8 +182,8 @@ internal class DepthSortedSetsForDifferentPasses(extraAssertions: Boolean) {
     }
 
     /**
-     * Pops nodes that require lookahead remeasurement/replacement first until the lookaheadSet
-     * is empty, before handling nodes that only require invalidation for the main pass.
+     * Pops nodes that require lookahead remeasurement/replacement first until the lookaheadSet is
+     * empty, before handling nodes that only require invalidation for the main pass.
      */
     inline fun popEach(crossinline block: (node: LayoutNode, affectsLookahead: Boolean) -> Unit) {
         while (isNotEmpty()) {
@@ -180,6 +194,9 @@ internal class DepthSortedSetsForDifferentPasses(extraAssertions: Boolean) {
     }
 
     fun isEmpty(): Boolean = set.isEmpty() && lookaheadSet.isEmpty()
+
+    fun isEmpty(affectsLookahead: Boolean): Boolean =
+        if (affectsLookahead) lookaheadSet.isEmpty() else set.isEmpty()
 
     fun isNotEmpty(): Boolean = !isEmpty()
 }

@@ -28,101 +28,161 @@ import androidx.compose.testutils.benchmark.recomposeUntilNoChangesPending
 import androidx.compose.testutils.doFramesUntilNoChangesPending
 import org.junit.Assert
 
-/**
- * Measures the time of the first draw right after the given test case is added to an already
- * existing hierarchy.
- *
- * @param caseFactory a factory for [LayeredComposeTestCase]
- * @param allowPendingChanges in case `true`, the benchmark will allow pending changes after the
- * first draw. Otherwise, an [assertNoPendingChanges] will be called.
- */
-internal fun ComposeBenchmarkRule.benchmarkFirstDraw(
+internal fun ComposeBenchmarkRule.benchmarkDrawUntilStable(
     caseFactory: () -> LayeredComposeTestCase,
-    allowPendingChanges: Boolean
+    maxSteps: Int = MaxSteps,
 ) {
     runBenchmarkFor(LayeredCaseAdapter.of(caseFactory)) {
-        measureRepeated {
-            runWithTimingDisabled {
-                doFramesUntilNoChangesPending()
+        measureRepeatedOnUiThread {
+            runWithMeasurementDisabled {
+                doFramesUntilNoChangesPending(maxSteps)
                 // Add the content to benchmark
                 getTestCase().addMeasuredContent()
+            }
+
+            var loopCount = 0
+            while (hasPendingChanges()) {
+                loopCount++
+                runWithMeasurementDisabled {
+                    recomposeUntilNoChangesPending(maxSteps)
+                    requestLayout()
+                    measure()
+                    layout()
+                    drawPrepare()
+                }
+
+                draw()
+
+                runWithMeasurementDisabled { drawFinish() }
+            }
+
+            if (loopCount == 1) {
+                throw AssertionError("Use benchmarkFirstDraw instead")
+            }
+
+            runWithMeasurementDisabled {
+                assertNoPendingChanges()
+                disposeContent()
+            }
+        }
+    }
+}
+
+internal fun ComposeBenchmarkRule.benchmarkMeasureUntilStable(
+    caseFactory: () -> LayeredComposeTestCase,
+    maxSteps: Int = MaxSteps,
+) {
+    runBenchmarkFor(LayeredCaseAdapter.of(caseFactory)) {
+        measureRepeatedOnUiThread {
+            runWithMeasurementDisabled {
+                doFramesUntilNoChangesPending(maxSteps)
+                // Add the content to benchmark
+                getTestCase().addMeasuredContent()
+            }
+
+            var loopCount = 0
+            while (hasPendingChanges()) {
+                loopCount++
+                runWithMeasurementDisabled {
+                    recomposeUntilNoChangesPending(maxSteps)
+                    requestLayout()
+                }
+
+                measure()
+
+                runWithMeasurementDisabled {
+                    layout()
+                    drawPrepare()
+                    draw()
+                    drawFinish()
+                }
+            }
+
+            if (loopCount == 1) {
+                throw AssertionError("Use benchmarkFirstMeasure instead")
+            }
+
+            runWithMeasurementDisabled {
+                assertNoPendingChanges()
+                disposeContent()
+            }
+        }
+    }
+}
+
+internal fun ComposeBenchmarkRule.benchmarkLayoutUntilStable(
+    caseFactory: () -> LayeredComposeTestCase,
+    maxSteps: Int = MaxSteps,
+) {
+    runBenchmarkFor(LayeredCaseAdapter.of(caseFactory)) {
+        measureRepeatedOnUiThread {
+            runWithMeasurementDisabled {
+                doFramesUntilNoChangesPending(maxSteps)
+                // Add the content to benchmark
+                getTestCase().addMeasuredContent()
+            }
+
+            var loopCount = 0
+            while (hasPendingChanges()) {
+                loopCount++
+                runWithMeasurementDisabled {
+                    recomposeUntilNoChangesPending(maxSteps)
+                    requestLayout()
+                    measure()
+                }
+
+                layout()
+
+                runWithMeasurementDisabled {
+                    drawPrepare()
+                    draw()
+                    drawFinish()
+                }
+            }
+
+            if (loopCount == 1) {
+                throw AssertionError("Use benchmarkFirstLayout instead")
+            }
+
+            runWithMeasurementDisabled {
+                assertNoPendingChanges()
+                disposeContent()
+            }
+        }
+    }
+}
+
+internal fun ComposeBenchmarkRule.benchmarkFirstRenderUntilStable(
+    caseFactory: () -> LayeredComposeTestCase,
+    maxSteps: Int = MaxSteps,
+) {
+    runBenchmarkFor(LayeredCaseAdapter.of(caseFactory)) {
+        measureRepeatedOnUiThread {
+            runWithMeasurementDisabled {
+                doFramesUntilNoChangesPending(maxSteps)
+                // Add the content to benchmark
+                getTestCase().addMeasuredContent()
+            }
+
+            var loopCount = 0
+            while (hasPendingChanges()) {
+                loopCount++
                 recomposeUntilNoChangesPending()
                 requestLayout()
                 measure()
                 layout()
                 drawPrepare()
+                draw()
+
+                runWithMeasurementDisabled { drawFinish() }
             }
 
-            draw()
-
-            runWithTimingDisabled {
-                drawFinish()
-                if (!allowPendingChanges) assertNoPendingChanges()
-                disposeContent()
-            }
-        }
-    }
-}
-
-/**
- * Measures the time of the first measure right after the given test case is added to an already
- * existing hierarchy.
- *
- * @param caseFactory a factory for [LayeredComposeTestCase]
- * @param allowPendingChanges in case `true`, the benchmark will allow pending changes after the
- * first measure. Otherwise, an [assertNoPendingChanges] will be called.
- */
-internal fun ComposeBenchmarkRule.benchmarkFirstMeasure(
-    caseFactory: () -> LayeredComposeTestCase,
-    allowPendingChanges: Boolean
-) {
-    runBenchmarkFor(LayeredCaseAdapter.of(caseFactory)) {
-        measureRepeated {
-            runWithTimingDisabled {
-                doFramesUntilNoChangesPending()
-                // Add the content to benchmark
-                getTestCase().addMeasuredContent()
-                recomposeUntilNoChangesPending()
-                requestLayout()
+            if (loopCount == 1) {
+                throw AssertionError("Use benchmarkToFirstPixel instead")
             }
 
-            measure()
-
-            runWithTimingDisabled {
-                if (!allowPendingChanges) assertNoPendingChanges()
-                disposeContent()
-            }
-        }
-    }
-}
-
-/**
- * Measures the time of the first layout right after the given test case is added to an already
- * existing hierarchy.
- *
- * @param caseFactory a factory for [LayeredComposeTestCase]
- * @param allowPendingChanges in case `true`, the benchmark will allow pending changes after the
- * first layout. Otherwise, an [assertNoPendingChanges] will be called.
- */
-internal fun ComposeBenchmarkRule.benchmarkFirstLayout(
-    caseFactory: () -> LayeredComposeTestCase,
-    allowPendingChanges: Boolean
-) {
-    runBenchmarkFor(LayeredCaseAdapter.of(caseFactory)) {
-        measureRepeated {
-            runWithTimingDisabled {
-                doFramesUntilNoChangesPending()
-                // Add the content to benchmark
-                getTestCase().addMeasuredContent()
-                recomposeUntilNoChangesPending()
-                requestLayout()
-                measure()
-            }
-
-            layout()
-
-            runWithTimingDisabled {
-                if (!allowPendingChanges) assertNoPendingChanges()
+            runWithMeasurementDisabled {
+                assertNoPendingChanges()
                 disposeContent()
             }
         }
@@ -154,4 +214,4 @@ private class LayeredCaseAdapter(private val innerCase: LayeredComposeTestCase) 
     }
 }
 
-private const val MaxAmountOfRecompositions = 10
+private const val MaxSteps = 10

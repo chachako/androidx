@@ -16,22 +16,17 @@
 
 package androidx.wear.tiles.material;
 
-import static androidx.wear.tiles.material.ButtonDefaults.DEFAULT_SIZE;
-import static androidx.wear.tiles.material.ButtonDefaults.EXTRA_LARGE_SIZE;
-import static androidx.wear.tiles.material.ButtonDefaults.LARGE_SIZE;
-import static androidx.wear.tiles.material.ButtonDefaults.PRIMARY_COLORS;
-
 import static com.google.common.truth.Truth.assertThat;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.content.Context;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.internal.DoNotInstrument;
@@ -61,7 +56,7 @@ public class ButtonTest {
 
         assertButton(
                 button,
-                DEFAULT_SIZE,
+                ButtonDefaults.DEFAULT_SIZE,
                 new ButtonColors(Colors.PRIMARY, 0),
                 null,
                 Button.METADATA_TAG_CUSTOM_CONTENT,
@@ -73,7 +68,7 @@ public class ButtonTest {
 
     @Test
     public void testButtonCustom() {
-        androidx.wear.tiles.DimensionBuilders.DpProp mSize = LARGE_SIZE;
+        androidx.wear.tiles.DimensionBuilders.DpProp mSize = ButtonDefaults.LARGE_SIZE;
         ButtonColors mButtonColors = new ButtonColors(0x11223344, 0);
 
         Button button =
@@ -107,8 +102,8 @@ public class ButtonTest {
 
         assertButton(
                 button,
-                DEFAULT_SIZE,
-                PRIMARY_COLORS,
+                ButtonDefaults.DEFAULT_SIZE,
+                ButtonDefaults.PRIMARY_COLORS,
                 CONTENT_DESCRIPTION,
                 Button.METADATA_TAG_ICON,
                 null,
@@ -122,14 +117,14 @@ public class ButtonTest {
         Button button =
                 new Button.Builder(CONTEXT, CLICKABLE)
                         .setIconContent(RESOURCE_ID)
-                        .setSize(LARGE_SIZE)
+                        .setSize(ButtonDefaults.LARGE_SIZE)
                         .setContentDescription(CONTENT_DESCRIPTION)
                         .build();
 
         assertButton(
                 button,
-                LARGE_SIZE,
-                PRIMARY_COLORS,
+                ButtonDefaults.LARGE_SIZE,
+                ButtonDefaults.PRIMARY_COLORS,
                 CONTENT_DESCRIPTION,
                 Button.METADATA_TAG_ICON,
                 null,
@@ -151,8 +146,8 @@ public class ButtonTest {
 
         assertButton(
                 button,
-                DEFAULT_SIZE,
-                PRIMARY_COLORS,
+                ButtonDefaults.DEFAULT_SIZE,
+                ButtonDefaults.PRIMARY_COLORS,
                 CONTENT_DESCRIPTION,
                 Button.METADATA_TAG_ICON,
                 null,
@@ -171,8 +166,8 @@ public class ButtonTest {
 
         assertButton(
                 button,
-                DEFAULT_SIZE,
-                PRIMARY_COLORS,
+                ButtonDefaults.DEFAULT_SIZE,
+                ButtonDefaults.PRIMARY_COLORS,
                 CONTENT_DESCRIPTION,
                 Button.METADATA_TAG_TEXT,
                 TEXT,
@@ -187,13 +182,13 @@ public class ButtonTest {
                 new Button.Builder(CONTEXT, CLICKABLE)
                         .setTextContent(TEXT)
                         .setContentDescription(CONTENT_DESCRIPTION)
-                        .setSize(EXTRA_LARGE_SIZE)
+                        .setSize(ButtonDefaults.EXTRA_LARGE_SIZE)
                         .build();
 
         assertButton(
                 button,
-                EXTRA_LARGE_SIZE,
-                PRIMARY_COLORS,
+                ButtonDefaults.EXTRA_LARGE_SIZE,
+                ButtonDefaults.PRIMARY_COLORS,
                 CONTENT_DESCRIPTION,
                 Button.METADATA_TAG_TEXT,
                 TEXT,
@@ -237,15 +232,15 @@ public class ButtonTest {
 
     private void assertButton(
             @NonNull Button actualButton,
-            @NonNull androidx.wear.tiles.DimensionBuilders.DpProp expectedSize,
+            androidx.wear.tiles.DimensionBuilders.@NonNull DpProp expectedSize,
             @NonNull ButtonColors expectedButtonColors,
             @Nullable String expectedContentDescription,
             @NonNull String expectedMetadataTag,
             @Nullable String expectedTextContent,
             @Nullable String expectedIconContent,
             @Nullable String expectedImageContent,
-            @Nullable
-                    androidx.wear.tiles.LayoutElementBuilders.LayoutElement expectedCustomContent) {
+            androidx.wear.tiles.LayoutElementBuilders.@Nullable LayoutElement
+                    expectedCustomContent) {
         assertButtonIsEqual(
                 actualButton,
                 expectedSize,
@@ -273,15 +268,15 @@ public class ButtonTest {
 
     private void assertButtonIsEqual(
             @NonNull Button actualButton,
-            @NonNull androidx.wear.tiles.DimensionBuilders.DpProp expectedSize,
+            androidx.wear.tiles.DimensionBuilders.@NonNull DpProp expectedSize,
             @NonNull ButtonColors expectedButtonColors,
             @Nullable String expectedContentDescription,
             @NonNull String expectedMetadataTag,
             @Nullable String expectedTextContent,
             @Nullable String expectedIconContent,
             @Nullable String expectedImageContent,
-            @Nullable
-                    androidx.wear.tiles.LayoutElementBuilders.LayoutElement expectedCustomContent) {
+            androidx.wear.tiles.LayoutElementBuilders.@Nullable LayoutElement
+                    expectedCustomContent) {
         // Mandatory
         assertThat(actualButton.getMetadataTag()).isEqualTo(expectedMetadataTag);
         assertThat(actualButton.getClickable().toProto()).isEqualTo(CLICKABLE.toProto());
@@ -328,15 +323,15 @@ public class ButtonTest {
 
     private void assertFromLayoutElementButtonIsEqual(
             @NonNull Button button,
-            @NonNull androidx.wear.tiles.DimensionBuilders.DpProp expectedSize,
+            androidx.wear.tiles.DimensionBuilders.@NonNull DpProp expectedSize,
             @NonNull ButtonColors expectedButtonColors,
             @Nullable String expectedContentDescription,
             @NonNull String expectedMetadataTag,
             @Nullable String expectedTextContent,
             @Nullable String expectedIconContent,
             @Nullable String expectedImageContent,
-            @Nullable
-                    androidx.wear.tiles.LayoutElementBuilders.LayoutElement expectedCustomContent) {
+            androidx.wear.tiles.LayoutElementBuilders.@Nullable LayoutElement
+                    expectedCustomContent) {
         androidx.wear.tiles.LayoutElementBuilders.Box box =
                 new androidx.wear.tiles.LayoutElementBuilders.Box.Builder()
                         .addContent(button)

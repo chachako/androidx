@@ -19,6 +19,8 @@ package androidx.wear.tiles.material;
 import static androidx.wear.tiles.material.RunnerUtils.SCREEN_HEIGHT;
 import static androidx.wear.tiles.material.RunnerUtils.SCREEN_WIDTH;
 import static androidx.wear.tiles.material.RunnerUtils.runSingleScreenshotTest;
+import static androidx.wear.tiles.material.RunnerUtils.waitForNotificationToDisappears;
+import static androidx.wear.tiles.material.ScreenshotKt.SCREENSHOT_GOLDEN_PATH;
 import static androidx.wear.tiles.material.TestCasesGenerator.generateTestCases;
 
 import android.content.Context;
@@ -26,7 +28,6 @@ import android.util.DisplayMetrics;
 
 import androidx.annotation.Dimension;
 import androidx.test.filters.LargeTest;
-import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.screenshot.AndroidXScreenshotTestRule;
 
@@ -48,7 +49,7 @@ public class MaterialGoldenTest {
 
     @Rule
     public AndroidXScreenshotTestRule mScreenshotRule =
-            new AndroidXScreenshotTestRule("wear/wear-tiles-material");
+            new AndroidXScreenshotTestRule(SCREENSHOT_GOLDEN_PATH);
 
     public MaterialGoldenTest(
             String expected,
@@ -92,12 +93,13 @@ public class MaterialGoldenTest {
         Map<String, androidx.wear.tiles.LayoutElementBuilders.LayoutElement> testCases =
                 generateTestCases(context, deviceParameters, "");
 
+        waitForNotificationToDisappears();
+
         return testCases.entrySet().stream()
                 .map(test -> new Object[] {test.getKey(), test.getValue()})
                 .collect(Collectors.toList());
     }
 
-    @SdkSuppress(maxSdkVersion = 32) // b/271486183
     @Test
     public void test() {
         runSingleScreenshotTest(mScreenshotRule, mLayoutElement, mExpected);

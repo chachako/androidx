@@ -14,33 +14,28 @@
  * limitations under the License.
  */
 
+@file:Suppress("DEPRECATION")
+
 package androidx.compose.ui.node
 
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.node.RootForTest.ExceptionHandler
 import androidx.compose.ui.semantics.SemanticsOwner
 import androidx.compose.ui.text.input.TextInputService
 import androidx.compose.ui.unit.Density
 
 /**
- * The marker interface to be implemented by the root backing the composition.
- * To be used in tests.
+ * The marker interface to be implemented by the root backing the composition. To be used in tests.
  */
 interface RootForTest {
-    /**
-     * Current device density.
-     */
+    /** Current device density. */
     val density: Density
 
-    /**
-     * Semantics owner for this root. Manages all the semantics nodes.
-     */
+    /** Semantics owner for this root. Manages all the semantics nodes. */
     val semanticsOwner: SemanticsOwner
 
-    /**
-     * The service handling text input.
-     */
-    val textInputService: TextInputService
+    /** The service handling text input. */
+    @Deprecated("Use PlatformTextInputModifierNode instead.") val textInputService: TextInputService
 
     /**
      * Send this [KeyEvent] to the focused component in this [Owner].
@@ -48,6 +43,23 @@ interface RootForTest {
      * @return true if the event was consumed. False otherwise.
      */
     fun sendKeyEvent(keyEvent: KeyEvent): Boolean
+
+    /**
+     * Force accessibility to be enabled for testing.
+     *
+     * @param enable force enable accessibility if true.
+     */
+    fun forceAccessibilityForTesting(enable: Boolean) {}
+
+    /**
+     * Set the time interval between sending accessibility events in milliseconds.
+     *
+     * This is the delay before dispatching a recurring accessibility event in milliseconds. It
+     * delays the loop that sends events to the accessibility and content capture framework in
+     * batches. A recurring event will be sent at most once during the [intervalMillis] timeframe.
+     * The default time delay is 100 milliseconds.
+     */
+    fun setAccessibilityEventBatchIntervalMillis(intervalMillis: Long) {}
 
     /**
      * Requests another layout (measure + placement) pass be performed for any nodes that need it.
@@ -59,6 +71,29 @@ interface RootForTest {
      * fast as possible (i.e. without waiting for the choreographer to schedule them) in order to
      * get to idle, e.g. during a `waitForIdle` call.
      */
-    @ExperimentalComposeUiApi
     fun measureAndLayoutForTest() {}
+
+    /**
+     * Sets exception handler for measure / layout / draw passes. The exception handler observes
+     * exceptions in those passes and can prevent them from being thrown.
+     */
+    fun setExceptionHandler(exceptionHandler: ExceptionHandler?) {}
+
+    /**
+     * Called after exception was caught during UI operations. The callback is expected to return
+     * true if the exception is handled by the test or false otherwise.
+     */
+    fun interface ExceptionHandler {
+        /**
+         * Handle exception caught by the exception handler.
+         *
+         * @param e Caught exception
+         * @return true if the exception is handled by the test or false otherwise
+         */
+        fun handleException(e: Throwable): Boolean
+    }
+}
+
+internal fun ExceptionHandler?.handleOrThrow(e: Throwable) {
+    if (this == null || !handleException(e)) throw e
 }

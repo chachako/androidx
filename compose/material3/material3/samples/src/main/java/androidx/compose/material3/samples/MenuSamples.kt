@@ -26,9 +26,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -49,47 +49,28 @@ import androidx.compose.ui.tooling.preview.Preview
 fun MenuSample() {
     var expanded by remember { mutableStateOf(false) }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .wrapContentSize(Alignment.TopStart)
-    ) {
+    Box(modifier = Modifier.fillMaxSize().wrapContentSize(Alignment.TopStart)) {
         IconButton(onClick = { expanded = true }) {
             Icon(Icons.Default.MoreVert, contentDescription = "Localized description")
         }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
                 text = { Text("Edit") },
                 onClick = { /* Handle edit! */ },
-                leadingIcon = {
-                    Icon(
-                        Icons.Outlined.Edit,
-                        contentDescription = null
-                    )
-                })
+                leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) }
+            )
             DropdownMenuItem(
                 text = { Text("Settings") },
                 onClick = { /* Handle settings! */ },
-                leadingIcon = {
-                    Icon(
-                        Icons.Outlined.Settings,
-                        contentDescription = null
-                    )
-                })
-            Divider()
+                leadingIcon = { Icon(Icons.Outlined.Settings, contentDescription = null) }
+            )
+            HorizontalDivider()
             DropdownMenuItem(
                 text = { Text("Send Feedback") },
                 onClick = { /* Handle send feedback! */ },
-                leadingIcon = {
-                    Icon(
-                        Icons.Outlined.Email,
-                        contentDescription = null
-                    )
-                },
-                trailingIcon = { Text("F11", textAlign = TextAlign.Center) })
+                leadingIcon = { Icon(Icons.Outlined.Email, contentDescription = null) },
+                trailingIcon = { Text("F11", textAlign = TextAlign.Center) }
+            )
         }
     }
 }
@@ -100,11 +81,7 @@ fun MenuSample() {
 fun MenuWithScrollStateSample() {
     var expanded by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .wrapContentSize(Alignment.TopStart)
-    ) {
+    Box(modifier = Modifier.fillMaxSize().wrapContentSize(Alignment.TopStart)) {
         IconButton(onClick = { expanded = true }) {
             Icon(Icons.Default.MoreVert, contentDescription = "Localized description")
         }
@@ -117,12 +94,8 @@ fun MenuWithScrollStateSample() {
                 DropdownMenuItem(
                     text = { Text("Item ${it + 1}") },
                     onClick = { /* TODO */ },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Outlined.Edit,
-                            contentDescription = null
-                        )
-                    })
+                    leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null) }
+                )
             }
         }
         LaunchedEffect(expanded) {

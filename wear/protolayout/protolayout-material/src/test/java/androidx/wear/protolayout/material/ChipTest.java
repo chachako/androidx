@@ -21,6 +21,9 @@ import static androidx.wear.protolayout.DimensionBuilders.dp;
 import static androidx.wear.protolayout.LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER;
 import static androidx.wear.protolayout.LayoutElementBuilders.HORIZONTAL_ALIGN_START;
 import static androidx.wear.protolayout.material.Utils.areChipColorsEqual;
+import static androidx.wear.protolayout.materialcore.Chip.METADATA_TAG_CUSTOM_CONTENT;
+import static androidx.wear.protolayout.materialcore.Chip.METADATA_TAG_ICON;
+import static androidx.wear.protolayout.materialcore.Chip.METADATA_TAG_TEXT;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -29,8 +32,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import android.content.Context;
 import android.graphics.Color;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.wear.protolayout.ActionBuilders.LaunchAction;
@@ -48,6 +49,8 @@ import androidx.wear.protolayout.ModifiersBuilders.Modifiers;
 import androidx.wear.protolayout.TypeBuilders.StringProp;
 import androidx.wear.protolayout.expression.DynamicBuilders.DynamicString;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.internal.DoNotInstrument;
@@ -84,7 +87,7 @@ public class ChipTest {
                 HORIZONTAL_ALIGN_CENTER,
                 ChipDefaults.PRIMARY_COLORS,
                 contentDescription,
-                Chip.METADATA_TAG_TEXT,
+                METADATA_TAG_TEXT,
                 MAIN_TEXT,
                 null,
                 null,
@@ -107,7 +110,7 @@ public class ChipTest {
                 HORIZONTAL_ALIGN_START,
                 colors,
                 staticString(MAIN_TEXT + "\n" + secondaryLabel),
-                Chip.METADATA_TAG_ICON,
+                METADATA_TAG_ICON,
                 MAIN_TEXT,
                 secondaryLabel,
                 "ICON_ID",
@@ -126,7 +129,7 @@ public class ChipTest {
                 HORIZONTAL_ALIGN_START,
                 ChipDefaults.PRIMARY_COLORS,
                 staticString(MAIN_TEXT),
-                Chip.METADATA_TAG_TEXT,
+                METADATA_TAG_TEXT,
                 MAIN_TEXT,
                 null,
                 null,
@@ -167,7 +170,7 @@ public class ChipTest {
                         ChipDefaults.PRIMARY_COLORS.getBackgroundColor(),
                         new ColorProp.Builder(0).build()),
                 contentDescription,
-                Chip.METADATA_TAG_CUSTOM_CONTENT,
+                METADATA_TAG_CUSTOM_CONTENT,
                 null,
                 null,
                 null,

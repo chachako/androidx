@@ -16,14 +16,13 @@
 
 package androidx.biometric;
 
-import android.os.Build;
 import android.os.CancellationSignal;
 import android.util.Log;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Creates and caches cancellation signal objects that are compatible with
@@ -45,9 +44,7 @@ class CancellationSignalProvider {
          *
          * @return An instance of {@link android.os.CancellationSignal}.
          */
-        @RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
-        @NonNull
-        android.os.CancellationSignal getBiometricCancellationSignal();
+        android.os.@NonNull CancellationSignal getBiometricCancellationSignal();
 
         /**
          * Returns a cancellation signal object that is compatible with
@@ -55,8 +52,7 @@ class CancellationSignalProvider {
          *
          * @return An instance of {@link androidx.core.os.CancellationSignal}.
          */
-        @NonNull
-        androidx.core.os.CancellationSignal getFingerprintCancellationSignal();
+        androidx.core.os.@NonNull CancellationSignal getFingerprintCancellationSignal();
     }
 
     /**
@@ -68,13 +64,13 @@ class CancellationSignalProvider {
      * A cancellation signal object that is compatible with
      * {@link android.hardware.biometrics.BiometricPrompt}.
      */
-    @Nullable private android.os.CancellationSignal mBiometricCancellationSignal;
+    private android.os.@Nullable CancellationSignal mBiometricCancellationSignal;
 
     /**
      * A cancellation signal object that is compatible with
      * {@link androidx.core.hardware.fingerprint.FingerprintManagerCompat}.
      */
-    @Nullable private androidx.core.os.CancellationSignal mFingerprintCancellationSignal;
+    private androidx.core.os.@Nullable CancellationSignal mFingerprintCancellationSignal;
 
     /**
      * Creates a new cancellation signal provider instance.
@@ -82,15 +78,12 @@ class CancellationSignalProvider {
     CancellationSignalProvider() {
         mInjector = new Injector() {
             @Override
-            @RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
-            @NonNull
-            public CancellationSignal getBiometricCancellationSignal() {
-                return Api16Impl.create();
+            public @NonNull CancellationSignal getBiometricCancellationSignal() {
+                return new CancellationSignal();
             }
 
             @Override
-            @NonNull
-            public androidx.core.os.CancellationSignal getFingerprintCancellationSignal() {
+            public androidx.core.os.@NonNull CancellationSignal getFingerprintCancellationSignal() {
                 return new androidx.core.os.CancellationSignal();
             }
         };
@@ -116,9 +109,7 @@ class CancellationSignalProvider {
      * @return A cancellation signal that can be passed to
      *  {@link android.hardware.biometrics.BiometricPrompt}.
      */
-    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
-    @NonNull
-    android.os.CancellationSignal getBiometricCancellationSignal() {
+    android.os.@NonNull CancellationSignal getBiometricCancellationSignal() {
         if (mBiometricCancellationSignal == null) {
             mBiometricCancellationSignal = mInjector.getBiometricCancellationSignal();
         }
@@ -135,8 +126,7 @@ class CancellationSignalProvider {
      * @return A cancellation signal that can be passed to
      *  {@link androidx.core.hardware.fingerprint.FingerprintManagerCompat}.
      */
-    @NonNull
-    androidx.core.os.CancellationSignal getFingerprintCancellationSignal() {
+    androidx.core.os.@NonNull CancellationSignal getFingerprintCancellationSignal() {
         if (mFingerprintCancellationSignal == null) {
             mFingerprintCancellationSignal = mInjector.getFingerprintCancellationSignal();
         }
@@ -147,10 +137,9 @@ class CancellationSignalProvider {
      * Invokes cancel for all cached cancellation signal objects and clears any references to them.
      */
     void cancel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN
-                && mBiometricCancellationSignal != null) {
+        if (mBiometricCancellationSignal != null) {
             try {
-                Api16Impl.cancel(mBiometricCancellationSignal);
+                mBiometricCancellationSignal.cancel();
             } catch (NullPointerException e) {
                 // Catch and handle NPE if thrown by framework call to cancel() (b/151316421).
                 Log.e(TAG, "Got NPE while canceling biometric authentication.", e);
@@ -165,31 +154,6 @@ class CancellationSignalProvider {
                 Log.e(TAG, "Got NPE while canceling fingerprint authentication.", e);
             }
             mFingerprintCancellationSignal = null;
-        }
-    }
-
-    /**
-     * Nested class to avoid verification errors for methods introduced in Android 4.1 (API 16).
-     */
-    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
-    private static class Api16Impl {
-        // Prevent instantiation.
-        private Api16Impl() {}
-
-        /**
-         * Creates a new instance of the platform class {@link android.os.CancellationSignal}.
-         *
-         * @return An instance of {@link android.os.CancellationSignal}.
-         */
-        static android.os.CancellationSignal create() {
-            return new android.os.CancellationSignal();
-        }
-
-        /**
-         * Calls {@link android.os.CancellationSignal#cancel()} for the given cancellation signal.
-         */
-        static void cancel(android.os.CancellationSignal cancellationSignal) {
-            cancellationSignal.cancel();
         }
     }
 }

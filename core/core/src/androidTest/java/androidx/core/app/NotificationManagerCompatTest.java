@@ -31,9 +31,11 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationChannelGroup;
@@ -59,7 +61,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-
 
 @RunWith(AndroidJUnit4.class)
 @SmallTest
@@ -1159,6 +1160,27 @@ public class NotificationManagerCompatTest {
     }
 
     @Test
+    public void testCanUseFullScreenIntent() {
+        NotificationManager fakeManager = mock(NotificationManager.class);
+
+        Context spyContext = spy(mContext);
+
+        NotificationManagerCompat notificationManagerCompat =
+                new NotificationManagerCompat(fakeManager, spyContext);
+
+        final boolean canUse = notificationManagerCompat.canUseFullScreenIntent();
+
+        if (Build.VERSION.SDK_INT < 29) {
+            assertTrue(canUse);
+
+        } else if (Build.VERSION.SDK_INT < 34) {
+            verify(spyContext, times(1))
+                    .checkSelfPermission(Manifest.permission.USE_FULL_SCREEN_INTENT);
+        } else {
+            verify(fakeManager, times(1)).canUseFullScreenIntent();
+        }
+    }
+
     public void testGetActiveNotifications() {
         NotificationManager fakeManager = mock(NotificationManager.class);
         NotificationManagerCompat notificationManager =

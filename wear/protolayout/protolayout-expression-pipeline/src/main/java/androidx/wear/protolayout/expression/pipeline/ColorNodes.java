@@ -16,13 +16,15 @@
 
 package androidx.wear.protolayout.expression.pipeline;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
+import androidx.wear.protolayout.expression.DynamicBuilders.DynamicColor;
 import androidx.wear.protolayout.expression.proto.AnimationParameterProto.AnimationSpec;
 import androidx.wear.protolayout.expression.proto.DynamicProto.AnimatableFixedColor;
 import androidx.wear.protolayout.expression.proto.DynamicProto.StateColorSource;
 import androidx.wear.protolayout.expression.proto.FixedProto.FixedColor;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /** Dynamic data nodes which yield colors. */
 class ColorNodes {
@@ -34,8 +36,7 @@ class ColorNodes {
         private final DynamicTypeValueReceiverWithPreUpdate<Integer> mDownstream;
 
         FixedColorNode(
-                FixedColor protoNode,
-                DynamicTypeValueReceiverWithPreUpdate<Integer> downstream) {
+                FixedColor protoNode, DynamicTypeValueReceiverWithPreUpdate<Integer> downstream) {
             this.mValue = protoNode.getArgb();
             this.mDownstream = downstream;
         }
@@ -54,17 +55,23 @@ class ColorNodes {
 
         @Override
         public void destroy() {}
+
+        @Override
+        public int getCost() {
+            return FIXED_NODE_COST;
+        }
     }
 
     /** Dynamic color node that gets value from the platform source. */
     static class StateColorSourceNode extends StateSourceNode<Integer> {
         StateColorSourceNode(
-                StateStore stateStore,
+                DataStore dataStore,
                 StateColorSource protoNode,
                 DynamicTypeValueReceiverWithPreUpdate<Integer> downstream) {
             super(
-                    stateStore,
-                    protoNode.getSourceKey(),
+                    dataStore,
+                    StateSourceNode.<DynamicColor>createKey(
+                            protoNode.getSourceNamespace(), protoNode.getSourceKey()),
                     se -> se.getColorVal().getArgb(),
                     downstream);
         }
@@ -76,6 +83,7 @@ class ColorNodes {
 
         private final AnimatableFixedColor mProtoNode;
         private final DynamicTypeValueReceiverWithPreUpdate<Integer> mDownstream;
+        private boolean mFirstUpdateFromAnimatorDone = false;
 
         AnimatableFixedColorNode(
                 AnimatableFixedColor protoNode,
@@ -86,7 +94,14 @@ class ColorNodes {
             this.mProtoNode = protoNode;
             this.mDownstream = downstream;
             mQuotaAwareAnimator.addUpdateCallback(
-                    animatedValue -> mDownstream.onData((Integer) animatedValue));
+                    animatedValue -> {
+                        // The onPreUpdate has already been called once before the first update.
+                        if (mFirstUpdateFromAnimatorDone) {
+                            mDownstream.onPreUpdate();
+                        }
+                        mDownstream.onData((Integer) animatedValue);
+                        mFirstUpdateFromAnimatorDone = true;
+                    });
         }
 
         @Override
@@ -99,6 +114,9 @@ class ColorNodes {
         @UiThread
         public void init() {
             mQuotaAwareAnimator.setIntValues(mProtoNode.getFromArgb(), mProtoNode.getToArgb());
+            // For the first update from the animator with the above from & to values, the
+            // onPreUpdate has already been called.
+            mFirstUpdateFromAnimatorDone = false;
             startOrSkipAnimator();
         }
 
@@ -106,6 +124,11 @@ class ColorNodes {
         @UiThread
         public void destroy() {
             mQuotaAwareAnimator.stopAnimator();
+        }
+
+        @Override
+        public int getCost() {
+            return DEFAULT_NODE_COST;
         }
     }
 
@@ -118,6 +141,7 @@ class ColorNodes {
 
         @Nullable Integer mCurrentValue = null;
         int mPendingCalls = 0;
+        private boolean mFirstUpdateFromAnimatorDone = false;
 
         // Static analysis complains about calling methods of parent class AnimatableNode under
         // initialization but mInputCallback is only used after the constructor is finished.
@@ -132,8 +156,13 @@ class ColorNodes {
             mQuotaAwareAnimator.addUpdateCallback(
                     animatedValue -> {
                         if (mPendingCalls == 0) {
+                            // The onPreUpdate has already been called once before the first update.
+                            if (mFirstUpdateFromAnimatorDone) {
+                                mDownstream.onPreUpdate();
+                            }
                             mCurrentValue = (Integer) animatedValue;
                             mDownstream.onData(mCurrentValue);
+                            mFirstUpdateFromAnimatorDone = true;
                         }
                     });
             this.mInputCallback =
@@ -159,6 +188,9 @@ class ColorNodes {
                                     mDownstream.onData(mCurrentValue);
                                 } else {
                                     mQuotaAwareAnimator.setIntValues(mCurrentValue, newData);
+                                    // For the first update from the animator with the above from &
+                                    // to values, the onPreUpdate has already been called.
+                                    mFirstUpdateFromAnimatorDone = false;
                                     startOrSkipAnimator();
                                 }
                             }
@@ -180,6 +212,11 @@ class ColorNodes {
 
         public DynamicTypeValueReceiverWithPreUpdate<Integer> getInputCallback() {
             return mInputCallback;
+        }
+
+        @Override
+        public int getCost() {
+            return DEFAULT_NODE_COST;
         }
     }
 }

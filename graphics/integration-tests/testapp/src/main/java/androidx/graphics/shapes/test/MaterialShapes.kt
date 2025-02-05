@@ -24,9 +24,7 @@ import androidx.graphics.shapes.star
 import kotlin.math.cos
 import kotlin.math.sin
 
-/**
- * This class holds standard Material shape design implementations.
- */
+/** This class holds standard Material shape design implementations. */
 class MaterialShapes {
     companion object {
 
@@ -37,12 +35,8 @@ class MaterialShapes {
             return PointF(this.x * factor, this.y * factor)
         }
 
-        private val SquarePoints = listOf(
-            PointF(1f, 1f),
-            PointF(-1f, 1f),
-            PointF(-1f, -1f),
-            PointF(1f, -1f)
-        )
+        private val SquarePoints = floatArrayOf(1f, 1f, -1f, 1f, -1f, -1f, 1f, -1f)
+
         internal fun Float.toRadians(): Float {
             return this / 360f * 2 * FloatPI
         }
@@ -56,13 +50,18 @@ class MaterialShapes {
             directionVector(angleRadians) * radius + center
 
         @JvmStatic
-        fun triangleChip(radiusRatio: Float, rounding: CornerRounding): RoundedPolygon {
-            val points = listOf(
-                radialToCartesian(1f, 270f.toRadians()),
-                radialToCartesian(1f, 30f.toRadians()),
-                radialToCartesian(radiusRatio, 90f.toRadians()),
-                radialToCartesian(1f, 150f.toRadians()),
-            )
+        fun triangleChip(innerRadius: Float, rounding: CornerRounding): RoundedPolygon {
+            val points =
+                floatArrayOf(
+                    radialToCartesian(1f, 270f.toRadians()).x,
+                    radialToCartesian(1f, 270f.toRadians()).y,
+                    radialToCartesian(1f, 30f.toRadians()).x,
+                    radialToCartesian(1f, 30f.toRadians()).y,
+                    radialToCartesian(innerRadius, 90f.toRadians()).x,
+                    radialToCartesian(innerRadius, 90f.toRadians()).y,
+                    radialToCartesian(1f, 150f.toRadians()).x,
+                    radialToCartesian(1f, 150f.toRadians()).y
+                )
             return RoundedPolygon(points, rounding)
         }
 
@@ -71,22 +70,34 @@ class MaterialShapes {
         fun quarty(roundnessRatio: Float, smooth: Float = 0f): RoundedPolygon {
             return RoundedPolygon(
                 SquarePoints,
-                perVertexRounding = listOf(
-                    CornerRounding(), CornerRounding(), CornerRounding(),
-                    CornerRounding(roundnessRatio, smooth)
-                )
+                perVertexRounding =
+                    listOf(
+                        CornerRounding(),
+                        CornerRounding(),
+                        CornerRounding(),
+                        CornerRounding(roundnessRatio, smooth)
+                    )
             )
         }
 
         @JvmOverloads
         @JvmStatic
-        fun blobR(radiusRatio: Float, roundnessRatio: Float, smooth: Float = 0f): RoundedPolygon {
-            return RoundedPolygon(listOf(
-                PointF(-radiusRatio, -roundnessRatio),
-                PointF(radiusRatio, -roundnessRatio),
-                PointF(radiusRatio, roundnessRatio),
-                PointF(-radiusRatio, roundnessRatio),
-            ), CornerRounding(roundnessRatio, smooth)
+        fun blobR(innerRadius: Float, roundness: Float, smooth: Float = 0f): RoundedPolygon {
+            val sx = innerRadius.coerceAtLeast(0.1f)
+            val sy = roundness.coerceAtLeast(0.1f)
+            return RoundedPolygon(
+                vertices =
+                    floatArrayOf(
+                        -sx,
+                        -sy,
+                        sx,
+                        -sy,
+                        sx,
+                        sy,
+                        -sx,
+                        sy,
+                    ),
+                CornerRounding(roundness, smooth)
             )
         }
 
@@ -95,17 +106,23 @@ class MaterialShapes {
         fun cornerSouthEast(roundnessRatio: Float, smooth: Float = 0f): RoundedPolygon {
             return RoundedPolygon(
                 SquarePoints,
-                perVertexRounding = listOf(
-                    CornerRounding(roundnessRatio, smooth), CornerRounding(), CornerRounding(),
-                    CornerRounding()
-                )
+                perVertexRounding =
+                    listOf(
+                        CornerRounding(roundnessRatio, smooth),
+                        CornerRounding(),
+                        CornerRounding(),
+                        CornerRounding()
+                    )
             )
         }
 
         @JvmStatic
         fun scallop(): RoundedPolygon {
-            return RoundedPolygon.star(12, innerRadius = .928f,
-                rounding = CornerRounding(radius = .928f))
+            return RoundedPolygon.star(
+                12,
+                innerRadius = .928f,
+                rounding = CornerRounding(radius = .928f)
+            )
         }
 
         @JvmOverloads
@@ -116,9 +133,13 @@ class MaterialShapes {
             innerRounding: CornerRounding? = null,
             scale: Float = 1f
         ): RoundedPolygon {
-            val poly = RoundedPolygon.star(4, innerRadius = innerRadius,
-                rounding = CornerRounding(rounding * scale),
-                innerRounding = innerRounding)
+            val poly =
+                RoundedPolygon.star(
+                    4,
+                    innerRadius = innerRadius,
+                    rounding = CornerRounding(rounding * scale),
+                    innerRounding = innerRounding
+                )
             return poly
         }
 

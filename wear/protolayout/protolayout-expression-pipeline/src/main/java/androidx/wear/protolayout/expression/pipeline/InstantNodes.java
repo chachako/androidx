@@ -16,9 +16,12 @@
 
 package androidx.wear.protolayout.expression.pipeline;
 
-import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
+import androidx.wear.protolayout.expression.DynamicBuilders;
+import androidx.wear.protolayout.expression.proto.DynamicProto;
 import androidx.wear.protolayout.expression.proto.FixedProto.FixedInstant;
+
+import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
 
@@ -32,8 +35,7 @@ class InstantNodes {
         private final DynamicTypeValueReceiverWithPreUpdate<Instant> mDownstream;
 
         FixedInstantNode(
-                FixedInstant protoNode,
-                DynamicTypeValueReceiverWithPreUpdate<Instant> downstream) {
+                FixedInstant protoNode, DynamicTypeValueReceiverWithPreUpdate<Instant> downstream) {
             this.mValue = Instant.ofEpochSecond(protoNode.getEpochSeconds());
             this.mDownstream = downstream;
         }
@@ -52,11 +54,16 @@ class InstantNodes {
 
         @Override
         public void destroy() {}
+
+        @Override
+        public int getCost() {
+            return FIXED_NODE_COST;
+        }
     }
 
     /** Dynamic Instant node that gets value from the platform source. */
     static class PlatformTimeSourceNode implements DynamicDataSourceNode<Integer> {
-        @Nullable private final EpochTimePlatformDataSource mEpochTimePlatformDataSource;
+        private final @Nullable EpochTimePlatformDataSource mEpochTimePlatformDataSource;
         private final DynamicTypeValueReceiverWithPreUpdate<Instant> mDownstream;
 
         PlatformTimeSourceNode(
@@ -68,7 +75,16 @@ class InstantNodes {
 
         @Override
         @UiThread
-        public void preInit() {}
+        public void preInit() {
+            if (mEpochTimePlatformDataSource != null) {
+                mEpochTimePlatformDataSource.preRegister();
+            } else {
+                // If we have epoch time, it will call onPreUpdate when needed. Otherwise, because
+                // the init() will invalidate the date in downstream, we should call onPreUpdate
+                // here.
+                mDownstream.onPreUpdate();
+            }
+        }
 
         @Override
         @UiThread
@@ -86,6 +102,27 @@ class InstantNodes {
             if (mEpochTimePlatformDataSource != null) {
                 mEpochTimePlatformDataSource.unregisterForData(mDownstream);
             }
+        }
+
+        @Override
+        public int getCost() {
+            return DEFAULT_NODE_COST;
+        }
+    }
+
+    /** Dynamic Instant node that gets value from the state. */
+    static class StateInstantSourceNode extends StateSourceNode<Instant> {
+
+        StateInstantSourceNode(
+                DataStore dataStore,
+                DynamicProto.StateInstantSource protoNode,
+                DynamicTypeValueReceiverWithPreUpdate<Instant> downstream) {
+            super(
+                    dataStore,
+                    StateSourceNode.<DynamicBuilders.DynamicInstant>createKey(
+                            protoNode.getSourceNamespace(), protoNode.getSourceKey()),
+                    se -> Instant.ofEpochSecond(se.getInstantVal().getEpochSeconds()),
+                    downstream);
         }
     }
 }

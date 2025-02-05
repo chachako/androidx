@@ -19,7 +19,7 @@ package androidx.camera.extensions.impl;
 import android.hardware.camera2.CaptureResult;
 import android.util.Pair;
 
-import androidx.annotation.NonNull;
+import org.jspecify.annotations.NonNull;
 
 import java.util.List;
 
@@ -57,5 +57,5 @@ public interface ProcessResultImpl {
      * @param progress             Value between 0 and 100.
      * @since 1.4
      */
-    void onCaptureProcessProgressed(int progress);
+    default void onCaptureProcessProgressed(int progress) {}
 }

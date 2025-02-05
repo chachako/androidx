@@ -93,7 +93,7 @@ public class ComplicationDataTest {
         // WHEN the relevant getters are called on the resulting data
         // THEN the correct values are returned.
         Assert.assertEquals(data.rangedValue, 57f, 0f)
-        Assert.assertNull(data.rangedValueExpression)
+        Assert.assertNull(data.rangedDynamicValue)
         Assert.assertEquals(data.rangedMinValue, 5f, 0f)
         Assert.assertEquals(data.rangedMaxValue, 150f, 0f)
         assertThat(data.shortTitle!!.getTextAt(mResources, 0)).isEqualTo("title")
@@ -105,7 +105,7 @@ public class ComplicationDataTest {
         // GIVEN complication data of the RANGED_VALUE type created by the Builder...
         val data =
             ComplicationData.Builder(ComplicationData.TYPE_RANGED_VALUE)
-                .setRangedValueExpression(DynamicFloat.constant(20f))
+                .setRangedDynamicValue(DynamicFloat.constant(20f))
                 .setRangedMinValue(5f)
                 .setRangedMaxValue(150f)
                 .setShortTitle(plainText("title"))
@@ -114,7 +114,7 @@ public class ComplicationDataTest {
 
         // WHEN the relevant getters are called on the resulting data
         // THEN the correct values are returned.
-        assertThat(data.rangedValueExpression?.toDynamicFloatByteArray())
+        assertThat(data.rangedDynamicValue?.toDynamicFloatByteArray())
             .isEqualTo(DynamicFloat.constant(20f).toDynamicFloatByteArray())
         Assert.assertEquals(data.rangedMinValue, 5f, 0f)
         Assert.assertEquals(data.rangedMaxValue, 150f, 0f)
@@ -1074,10 +1074,10 @@ public class ComplicationDataTest {
         assertThat(entry.placeholder!!.type).isEqualTo(ComplicationData.TYPE_LONG_TEXT)
     }
 
-    enum class HasExpressionWithExpressionScenario(val data: ComplicationData) {
+    enum class HasDynamicValuesWithDynamicValueScenario(val data: ComplicationData) {
         RANGED_VALUE(
             ComplicationData.Builder(ComplicationData.TYPE_NO_DATA)
-                .setRangedValueExpression(DynamicFloat.constant(1f))
+                .setRangedDynamicValue(DynamicFloat.constant(1f))
                 .build()
         ),
         LONG_TEXT(
@@ -1105,21 +1105,44 @@ public class ComplicationDataTest {
                 .setContentDescription(ComplicationText(DynamicString.constant("Description")))
                 .build()
         ),
+        PLACEHOLDER(
+            ComplicationData.Builder(ComplicationData.TYPE_NO_DATA)
+                .setPlaceholder(
+                    ComplicationData.Builder(ComplicationData.TYPE_NO_DATA)
+                        .setRangedDynamicValue(DynamicFloat.constant(1f))
+                        .build()
+                )
+                .build()
+        ),
     }
 
     @Test
-    fun hasExpression_withExpression_returnsTrue() {
-        for (scenario in HasExpressionWithExpressionScenario.values()) {
-            expect.withMessage(scenario.name).that(scenario.data.hasExpression()).isTrue()
+    fun hasDynamicValues_withDynamicValue_returnsTrue() {
+        for (scenario in HasDynamicValuesWithDynamicValueScenario.values()) {
+            expect.withMessage(scenario.name).that(scenario.data.hasDynamicValues()).isTrue()
         }
     }
 
-    @Test
-    fun hasExpression_withoutExpression_returnsFalse() {
-        val data =
-            ComplicationData.Builder(ComplicationData.TYPE_NO_DATA).setRangedValue(10f).build()
+    enum class HasDynamicValuesWithoutDynamicValueScenario(val data: ComplicationData) {
+        NO_DATA(
+            ComplicationData.Builder(ComplicationData.TYPE_NO_DATA)
+                .setRangedValue(10f)
+                .setPlaceholder(
+                    ComplicationData.Builder(ComplicationData.TYPE_NO_DATA)
+                        .setRangedValue(10f)
+                        .build()
+                )
+                .build()
+        ),
+        // Important to test because it doesn't allow any getters.
+        EMPTY(ComplicationData.Builder(ComplicationData.TYPE_EMPTY).build()),
+    }
 
-        assertThat(data.hasExpression()).isFalse()
+    @Test
+    fun hasDynamicValues_withoutDynamicValue_returnsFalse() {
+        for (scenario in HasDynamicValuesWithoutDynamicValueScenario.values()) {
+            expect.withMessage(scenario.name).that(scenario.data.hasDynamicValues()).isFalse()
+        }
     }
 
     private companion object {

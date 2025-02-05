@@ -22,6 +22,7 @@ import androidx.compose.runtime.mock.NonReusableLinear
 import androidx.compose.runtime.mock.NonReusableText
 import androidx.compose.runtime.mock.Text
 import androidx.compose.runtime.mock.View
+import androidx.compose.runtime.mock.ViewApplier
 import androidx.compose.runtime.mock.compositionTest
 import androidx.compose.runtime.mock.expectChanges
 import androidx.compose.runtime.mock.expectNoChanges
@@ -52,11 +53,7 @@ class CompositionReusingTests {
             }
         }
 
-        validate {
-            Linear {
-                Text("Key = $key")
-            }
-        }
+        validate { Linear { Text("Key = $key") } }
 
         val firstData = lastData
         val nodes = root.flatten()
@@ -71,10 +68,7 @@ class CompositionReusingTests {
         assertArrayEquals(nodes, nodesAfterChange) { "${it.hashCode()}" }
 
         // Ensure remembers are not reused
-        assertNotEquals(
-            firstData, lastData,
-            "Should not remember values when recycling"
-        )
+        assertNotEquals(firstData, lastData, "Should not remember values when recycling")
     }
 
     @Test
@@ -118,26 +112,18 @@ class CompositionReusingTests {
         compose {
             ReusableContent(key) {
                 Linear {
-                    Linear {
-                        Text("Key = $key")
-                    }
-                    NonReusableLinear {
-                        Text("Non-recyclable key = $key")
-                    }
-                    NonReusableLinear { }
+                    Linear { Text("Key = $key") }
+                    NonReusableLinear { Text("Non-recyclable key = $key") }
+                    NonReusableLinear {}
                 }
             }
         }
 
         validate {
             Linear {
-                Linear {
-                    Text("Key = $key")
-                }
-                Linear {
-                    Text("Non-recyclable key = $key")
-                }
-                Linear { }
+                Linear { Text("Key = $key") }
+                Linear { Text("Non-recyclable key = $key") }
+                Linear {}
             }
         }
 
@@ -170,11 +156,7 @@ class CompositionReusingTests {
             }
         }
 
-        validate {
-            Linear {
-                Text("Key = $key")
-            }
-        }
+        validate { Linear { Text("Key = $key") } }
 
         val firstCompositeHash = lastCompositeHash
         key++
@@ -198,11 +180,7 @@ class CompositionReusingTests {
             }
         }
 
-        validate {
-            Linear {
-                Text("Key = $key: $localValue")
-            }
-        }
+        validate { Linear { Text("Key = $key: $localValue") } }
 
         val compositeHashForKey0 = lastCompositeHash
 
@@ -228,29 +206,30 @@ class CompositionReusingTests {
         var reuseKey by mutableStateOf(0)
         var active by mutableStateOf(true)
 
-        val rememberedState = object : RememberObserver {
-            var currentlyRemembered = false
-            var rememberCount = 0
-            var forgottenCount = 0
-            var abandonCount = 0
+        val rememberedState =
+            object : RememberObserver {
+                var currentlyRemembered = false
+                var rememberCount = 0
+                var forgottenCount = 0
+                var abandonCount = 0
 
-            override fun toString(): String = "Some text"
+                override fun toString(): String = "Some text"
 
-            override fun onRemembered() {
-                rememberCount++
-                currentlyRemembered = true
+                override fun onRemembered() {
+                    rememberCount++
+                    currentlyRemembered = true
+                }
+
+                override fun onForgotten() {
+                    forgottenCount++
+                    currentlyRemembered = false
+                }
+
+                override fun onAbandoned() {
+                    abandonCount++
+                    currentlyRemembered = false
+                }
             }
-
-            override fun onForgotten() {
-                forgottenCount++
-                currentlyRemembered = false
-            }
-
-            override fun onAbandoned() {
-                abandonCount++
-                currentlyRemembered = false
-            }
-        }
 
         compose {
             ReusableContentHost(active) {
@@ -265,13 +244,7 @@ class CompositionReusingTests {
             }
         }
 
-        validate {
-            Linear {
-                Linear {
-                    Text(rememberedState.toString())
-                }
-            }
-        }
+        validate { Linear { Linear { Text(rememberedState.toString()) } } }
 
         assertTrue(rememberedState.currentlyRemembered)
 
@@ -296,23 +269,24 @@ class CompositionReusingTests {
         var reuseKey by mutableStateOf(0)
         var active by mutableStateOf(true)
 
-        val rememberedState = object : RememberObserver {
-            var currentlyRemembered = false
+        val rememberedState =
+            object : RememberObserver {
+                var currentlyRemembered = false
 
-            override fun toString(): String = "Some text"
+                override fun toString(): String = "Some text"
 
-            override fun onRemembered() {
-                currentlyRemembered = true
+                override fun onRemembered() {
+                    currentlyRemembered = true
+                }
+
+                override fun onForgotten() {
+                    currentlyRemembered = false
+                }
+
+                override fun onAbandoned() {
+                    currentlyRemembered = false
+                }
             }
-
-            override fun onForgotten() {
-                currentlyRemembered = false
-            }
-
-            override fun onAbandoned() {
-                currentlyRemembered = false
-            }
-        }
 
         compose {
             if (!active) {
@@ -334,9 +308,7 @@ class CompositionReusingTests {
                 Text("Not active")
             }
 
-            Linear {
-                Text(rememberedState.toString())
-            }
+            Linear { Text(rememberedState.toString()) }
         }
 
         assertTrue(rememberedState.currentlyRemembered)
@@ -363,13 +335,24 @@ class CompositionReusingTests {
         var outer by mutableStateOf("Outer")
         var name by mutableStateOf("Value")
 
-        val rememberedState = object : RememberObserver {
-            var currentlyRemembered = false
-            override fun toString(): String = "Test"
-            override fun onRemembered() { currentlyRemembered = true }
-            override fun onForgotten() { currentlyRemembered = false }
-            override fun onAbandoned() { currentlyRemembered = false }
-        }
+        val rememberedState =
+            object : RememberObserver {
+                var currentlyRemembered = false
+
+                override fun toString(): String = "Test"
+
+                override fun onRemembered() {
+                    currentlyRemembered = true
+                }
+
+                override fun onForgotten() {
+                    currentlyRemembered = false
+                }
+
+                override fun onAbandoned() {
+                    currentlyRemembered = false
+                }
+            }
 
         compose {
             Text(outer)
@@ -383,9 +366,7 @@ class CompositionReusingTests {
 
         validate {
             Text(outer)
-            Linear {
-                Text("$rememberedState $name")
-            }
+            Linear { Text("$rememberedState $name") }
         }
 
         active = false
@@ -417,20 +398,11 @@ class CompositionReusingTests {
     fun onReuseIsCalledWhenReusableContentKeyChanges() = compositionTest {
         var reuseKey by mutableStateOf(0)
         var onReuseCalls = 0
-        val onReuse: () -> Unit = {
-            onReuseCalls++
-        }
+        val onReuse: () -> Unit = { onReuseCalls++ }
 
-        compose {
-            ReusableContent(reuseKey) {
-                Linear(onReuse = onReuse) { }
-            }
-        }
+        compose { ReusableContent(reuseKey) { Linear(onReuse = onReuse) {} } }
 
-        validate {
-            Linear {
-            }
-        }
+        validate { Linear {} }
 
         assertEquals(0, onReuseCalls)
 
@@ -452,23 +424,12 @@ class CompositionReusingTests {
         var reuseKey by mutableStateOf(0)
         var onReuseCalls = 0
         val onReuseCallsWhenSetCalled = mutableListOf<Int>()
-        val onReuse: () -> Unit = {
-            onReuseCalls++
-        }
-        val onSet: () -> Unit = {
-            onReuseCallsWhenSetCalled.add(onReuseCalls)
-        }
+        val onReuse: () -> Unit = { onReuseCalls++ }
+        val onSet: () -> Unit = { onReuseCallsWhenSetCalled.add(onReuseCalls) }
 
-        compose {
-            ReusableContent(reuseKey) {
-                Linear(onReuse = onReuse, onSet = onSet) { }
-            }
-        }
+        compose { ReusableContent(reuseKey) { Linear(onReuse = onReuse, onSet = onSet) {} } }
 
-        validate {
-            Linear {
-            }
-        }
+        validate { Linear {} }
 
         assertEquals(listOf(0), onReuseCallsWhenSetCalled)
         onReuseCallsWhenSetCalled.clear()
@@ -485,21 +446,14 @@ class CompositionReusingTests {
         var reuseKey by mutableStateOf(0)
         var compositionFinished = false
         val onReuseCalls = mutableListOf<Boolean>()
-        val onReuse: () -> Unit = {
-            onReuseCalls.add(compositionFinished)
-        }
+        val onReuse: () -> Unit = { onReuseCalls.add(compositionFinished) }
 
         compose {
-            ReusableContent(reuseKey) {
-                Linear(onReuse = onReuse) { }
-            }
+            ReusableContent(reuseKey) { Linear(onReuse = onReuse) {} }
             compositionFinished = true
         }
 
-        validate {
-            Linear {
-            }
-        }
+        validate { Linear {} }
 
         assertEquals(emptyList(), onReuseCalls)
         compositionFinished = false
@@ -515,22 +469,15 @@ class CompositionReusingTests {
     fun onDeactivateIsCalledWhenReusableContentDeactivated() = compositionTest {
         var active by mutableStateOf(true)
         var onDeactivateCalls = 0
-        val onDeactivate: () -> Unit = {
-            onDeactivateCalls++
-        }
+        val onDeactivate: () -> Unit = { onDeactivateCalls++ }
 
         compose {
             ReusableContentHost(active) {
-                ReusableContent(0) {
-                    Linear(onDeactivate = onDeactivate) { }
-                }
+                ReusableContent(0) { Linear(onDeactivate = onDeactivate) {} }
             }
         }
 
-        validate {
-            Linear {
-            }
-        }
+        validate { Linear {} }
 
         assertEquals(0, onDeactivateCalls)
 
@@ -552,25 +499,16 @@ class CompositionReusingTests {
         var active by mutableStateOf(true)
         var onReuseCalls = 0
         val onReuseCallsWhenSetCalled = mutableListOf<Int>()
-        val onReuse: () -> Unit = {
-            onReuseCalls++
-        }
-        val onSet: () -> Unit = {
-            onReuseCallsWhenSetCalled.add(onReuseCalls)
-        }
+        val onReuse: () -> Unit = { onReuseCalls++ }
+        val onSet: () -> Unit = { onReuseCallsWhenSetCalled.add(onReuseCalls) }
 
         compose {
             ReusableContentHost(active) {
-                ReusableContent(0) {
-                    Linear(onReuse = onReuse, onSet = onSet) { }
-                }
+                ReusableContent(0) { Linear(onReuse = onReuse, onSet = onSet) {} }
             }
         }
 
-        validate {
-            Linear {
-            }
-        }
+        validate { Linear {} }
 
         active = false
 
@@ -589,15 +527,11 @@ class CompositionReusingTests {
     fun onReuseIsNotCalledWhenDisposed() = compositionTest {
         var emit by mutableStateOf(true)
         var onReuseCalls = 0
-        val onReuse: () -> Unit = {
-            onReuseCalls++
-        }
+        val onReuse: () -> Unit = { onReuseCalls++ }
 
         compose {
             if (emit) {
-                ReusableContent(0) {
-                    Linear(onReuse = onReuse) { }
-                }
+                ReusableContent(0) { Linear(onReuse = onReuse) {} }
             }
         }
 
@@ -612,15 +546,11 @@ class CompositionReusingTests {
         var active by mutableStateOf(true)
         var compositionFinished = false
         val onDeactivateCalls = mutableListOf<Boolean>()
-        val onDeactivate: () -> Unit = {
-            onDeactivateCalls.add(compositionFinished)
-        }
+        val onDeactivate: () -> Unit = { onDeactivateCalls.add(compositionFinished) }
 
         compose {
             ReusableContentHost(active) {
-                ReusableContent(0) {
-                    Linear(onDeactivate = onDeactivate) { }
-                }
+                ReusableContent(0) { Linear(onDeactivate = onDeactivate) {} }
             }
             if (!active) {
                 compositionFinished = true
@@ -637,15 +567,11 @@ class CompositionReusingTests {
     fun onReleaseIsCalledWhenNodeIsRemoved() = compositionTest {
         var emit by mutableStateOf(true)
         var onReleaseCalls = 0
-        val onRelease: () -> Unit = {
-            onReleaseCalls++
-        }
+        val onRelease: () -> Unit = { onReleaseCalls++ }
 
         compose {
             if (emit) {
-                ReusableContent(0) {
-                    Linear(onRelease = onRelease) { }
-                }
+                ReusableContent(0) { Linear(onRelease = onRelease) {} }
             }
         }
 
@@ -659,15 +585,9 @@ class CompositionReusingTests {
     fun onReleaseIsNotCalledOnReuse() = compositionTest {
         var key by mutableStateOf(0)
         var onReleaseCalls = 0
-        val onRelease: () -> Unit = {
-            onReleaseCalls++
-        }
+        val onRelease: () -> Unit = { onReleaseCalls++ }
 
-        compose {
-            ReusableContent(key) {
-                Linear(onRelease = onRelease) { }
-            }
-        }
+        compose { ReusableContent(key) { Linear(onRelease = onRelease) {} } }
 
         key++
         expectChanges()
@@ -680,15 +600,11 @@ class CompositionReusingTests {
         var active by mutableStateOf(true)
         var emit by mutableStateOf(true)
         var onReleaseCalls = 0
-        val onRelease: () -> Unit = {
-            onReleaseCalls++
-        }
+        val onRelease: () -> Unit = { onReleaseCalls++ }
 
         compose {
             if (emit) {
-                ReusableContentHost(active) {
-                    Linear(onRelease = onRelease) { }
-                }
+                ReusableContentHost(active) { Linear(onRelease = onRelease) {} }
             }
         }
 
@@ -707,19 +623,13 @@ class CompositionReusingTests {
     fun onReleaseIsNotCalledWithMovableContentMovement() = compositionTest {
         var wrap by mutableStateOf(true)
         var onReleaseCalls = 0
-        val onRelease: () -> Unit = {
-            onReleaseCalls++
-        }
+        val onRelease: () -> Unit = { onReleaseCalls++ }
 
-        val movableContent = movableContentOf {
-            Linear(onRelease = onRelease) { }
-        }
+        val movableContent = movableContentOf { Linear(onRelease = onRelease) {} }
 
         compose {
             if (wrap) {
-                ReusableContent(0) {
-                    movableContent()
-                }
+                ReusableContent(0) { movableContent() }
             } else {
                 movableContent()
             }
@@ -736,15 +646,11 @@ class CompositionReusingTests {
         var emit by mutableStateOf(true)
         var compositionFinished = false
         val onReleaseCalls = mutableListOf<Boolean>()
-        val onRelease: () -> Unit = {
-            onReleaseCalls.add(compositionFinished)
-        }
+        val onRelease: () -> Unit = { onReleaseCalls.add(compositionFinished) }
 
         compose {
             if (emit) {
-                ReusableContent(0) {
-                    Linear(onRelease = onRelease) { }
-                }
+                ReusableContent(0) { Linear(onRelease = onRelease) {} }
             } else {
                 compositionFinished = true
             }
@@ -755,10 +661,233 @@ class CompositionReusingTests {
 
         assertEquals(listOf(true), onReleaseCalls)
     }
+
+    @Test
+    fun compositionParentContextIsUpdatedAfterReuse() = compositionTest {
+        val local = compositionLocalOf { 0 }
+        var key by mutableStateOf(0)
+        var active by mutableStateOf(true)
+        var subcomposition: Composition? = null
+
+        compose {
+            ReusableContentHost(active) {
+                ReusableContent(key) {
+                    CompositionLocalProvider(local provides key) {
+                        val context = rememberCompositionContext()
+                        if (subcomposition == null) {
+                            subcomposition =
+                                Composition(ViewApplier(root), context).apply {
+                                    setContent { Text("${local.current}") }
+                                }
+                        }
+                    }
+                }
+            }
+        }
+
+        validate { Text("$key") }
+
+        active = false
+        expectChanges()
+
+        active = true
+        key++
+        expectChanges()
+        subcomposition!!.setContent { Text("${local.current}") }
+
+        revalidate()
+    }
+
+    @Test
+    fun forceReuseForgetsWhenContentDidntChange() = compositionTest {
+        var active by mutableStateOf(true)
+
+        val rememberedState =
+            object : RememberObserver {
+                var rememberCount = 0
+                var forgottenCount = 0
+                var abandonCount = 0
+
+                override fun toString(): String = "Some text"
+
+                override fun onRemembered() {
+                    rememberCount++
+                }
+
+                override fun onForgotten() {
+                    forgottenCount++
+                }
+
+                override fun onAbandoned() {
+                    abandonCount++
+                }
+            }
+
+        val content =
+            @Composable {
+                ReusableContentHost(active) {
+                    Linear {
+                        val state = remember { rememberedState }
+                        Text(state.toString())
+                    }
+                }
+            }
+
+        compose(content)
+
+        validate { Linear { Text(rememberedState.toString()) } }
+
+        assertEquals(1, rememberedState.rememberCount)
+        assertEquals(0, rememberedState.forgottenCount)
+
+        active = false
+        active = true
+        expectNoChanges()
+        revalidate()
+
+        assertEquals(1, rememberedState.rememberCount)
+        assertEquals(0, rememberedState.forgottenCount)
+
+        (composition as CompositionImpl).setContentWithReuse(content)
+
+        revalidate()
+
+        assertEquals(2, rememberedState.rememberCount)
+        assertEquals(1, rememberedState.forgottenCount)
+        assertEquals(0, rememberedState.abandonCount)
+    }
+
+    @Test
+    fun deactivatesForgetsWhenContentDidntChange() = compositionTest {
+        val rememberedState =
+            object : RememberObserver {
+                var rememberCount = 0
+                var forgottenCount = 0
+                var abandonCount = 0
+
+                override fun toString(): String = "Some text"
+
+                override fun onRemembered() {
+                    rememberCount++
+                }
+
+                override fun onForgotten() {
+                    forgottenCount++
+                }
+
+                override fun onAbandoned() {
+                    abandonCount++
+                }
+            }
+
+        val content =
+            @Composable {
+                Linear {
+                    val state = remember { rememberedState }
+                    Text(state.toString())
+                }
+            }
+
+        compose(content)
+
+        validate { Linear { Text(rememberedState.toString()) } }
+
+        assertEquals(1, rememberedState.rememberCount)
+        assertEquals(0, rememberedState.forgottenCount)
+
+        (composition as CompositionImpl).deactivate()
+        assertEquals(1, rememberedState.rememberCount)
+        assertEquals(1, rememberedState.forgottenCount)
+
+        (composition as CompositionImpl).setContentWithReuse(content)
+
+        revalidate()
+
+        assertEquals(2, rememberedState.rememberCount)
+        assertEquals(1, rememberedState.forgottenCount)
+        assertEquals(0, rememberedState.abandonCount)
+    }
+
+    @Test
+    fun reusableContentTriggersRememberObserver() = compositionTest {
+        var reuseKey by mutableStateOf(0)
+
+        val rememberedState =
+            object : RememberObserver {
+                var rememberCount = 0
+                var forgottenCount = 0
+                var abandonCount = 0
+
+                override fun toString(): String = "Some text"
+
+                override fun onRemembered() {
+                    rememberCount++
+                }
+
+                override fun onForgotten() {
+                    forgottenCount++
+                }
+
+                override fun onAbandoned() {
+                    abandonCount++
+                }
+            }
+
+        compose {
+            ReusableContent(reuseKey) {
+                val state = remember { rememberedState }
+                Text("$state")
+            }
+        }
+
+        validate { Text("$rememberedState") }
+
+        assertEquals(1, rememberedState.rememberCount)
+        assertEquals(0, rememberedState.forgottenCount)
+        assertEquals(0, rememberedState.abandonCount)
+
+        reuseKey++
+        expectChanges()
+        revalidate()
+
+        assertEquals(2, rememberedState.rememberCount)
+        assertEquals(1, rememberedState.forgottenCount)
+        assertEquals(0, rememberedState.abandonCount)
+    }
+
+    @Test
+    fun reusableContentHost_movableContent() = compositionTest {
+        var active by mutableStateOf(true)
+        var state by mutableIntStateOf(0)
+        var subcomposition: Composition? = null
+        val movableContent = movableContentOf { Text("State: $state") }
+
+        compose {
+            if (active) {
+                val context = rememberCompositionContext()
+                if (subcomposition == null) {
+                    subcomposition =
+                        Composition(ViewApplier(root), context).apply {
+                            setContent { movableContent() }
+                        }
+                }
+            }
+        }
+
+        state++
+        active = false
+        advance()
+
+        // Validate that detaching the composition will not leave the composition in an invalid
+        // state.
+        subcomposition?.setContent { Text("This is a test") }
+    }
 }
 
-private fun View.findTextWith(contains: String) =
-    find { it.name == "text" && it.text?.contains(contains) == true }
+private fun View.findTextWith(contains: String) = find {
+    it.name == "text" && it.text?.contains(contains) == true
+}
+
 private fun CompositionTestScope.findTextWith(contains: String) = root.findTextWith(contains)
 
 private fun View.find(predicate: (view: View) -> Boolean): View? {

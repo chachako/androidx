@@ -37,11 +37,11 @@ import android.graphics.drawable.AnimatedVectorDrawable;
 import android.graphics.drawable.Drawable;
 import android.widget.FrameLayout;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.vectordrawable.graphics.drawable.SeekableAnimatedVectorDrawable;
+import androidx.wear.protolayout.expression.AppDataKey;
+import androidx.wear.protolayout.expression.DynamicBuilders;
 import androidx.wear.protolayout.expression.pipeline.FixedQuotaManagerImpl;
 import androidx.wear.protolayout.expression.pipeline.QuotaManager;
 import androidx.wear.protolayout.expression.pipeline.StateStore;
@@ -49,6 +49,8 @@ import androidx.wear.protolayout.expression.proto.AnimationParameterProto.Animat
 import androidx.wear.protolayout.expression.proto.AnimationParameterProto.AnimationSpec;
 import androidx.wear.protolayout.expression.proto.AnimationParameterProto.RepeatMode;
 import androidx.wear.protolayout.expression.proto.AnimationParameterProto.Repeatable;
+import androidx.wear.protolayout.expression.proto.DynamicDataProto.DynamicDataValue;
+import androidx.wear.protolayout.expression.proto.DynamicProto;
 import androidx.wear.protolayout.expression.proto.DynamicProto.AnimatableDynamicColor;
 import androidx.wear.protolayout.expression.proto.DynamicProto.AnimatableDynamicFloat;
 import androidx.wear.protolayout.expression.proto.DynamicProto.AnimatableFixedColor;
@@ -69,8 +71,6 @@ import androidx.wear.protolayout.expression.proto.FixedProto.FixedBool;
 import androidx.wear.protolayout.expression.proto.FixedProto.FixedColor;
 import androidx.wear.protolayout.expression.proto.FixedProto.FixedFloat;
 import androidx.wear.protolayout.expression.proto.FixedProto.FixedInt32;
-import androidx.wear.protolayout.expression.proto.FixedProto.FixedString;
-import androidx.wear.protolayout.expression.proto.StateEntryProto.StateEntryValue;
 import androidx.wear.protolayout.proto.ColorProto.ColorProp;
 import androidx.wear.protolayout.proto.DimensionProto.DegreesProp;
 import androidx.wear.protolayout.proto.DimensionProto.DpProp;
@@ -91,6 +91,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import com.google.common.truth.Expect;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -109,9 +111,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-// Note: Most of the functionality of DynamicDataPipeline should be tested using //
-// DynamicDataPipelineProtoTest instead. This test class only exists for the cases that cannot be //
-// trivially tested there (e.g. throwing exceptions in response to feature flags or handling //
+// Note: Most of the functionality of DynamicDataPipeline should be tested using
+// DynamicDataPipelineProtoTest instead. This test class only exists for the cases that cannot be
+// trivially tested there (e.g. throwing exceptions in response to feature flags or handling
 // animations).
 @RunWith(AndroidJUnit4.class)
 public class ProtoLayoutDynamicDataPipelineTest {
@@ -378,7 +380,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
                         .build();
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -444,7 +446,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
         DynamicInt32 dynamicInt = fixedDynamicInt32(1);
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -464,7 +466,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -494,7 +496,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -522,7 +524,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -566,7 +568,8 @@ public class ProtoLayoutDynamicDataPipelineTest {
         shadowOf(getMainLooper()).idle();
         assertThat(results).containsExactly(3, 4, 5, 6).inOrder();
 
-        // Remove node NODE_1_1_1. NODE_1_1, NODE_1_11 and NODE_1_2 should remain in the pipeline.
+        // Remove node NODE_1_1_1.
+        // NODE_1_1, NODE_1_11 and NODE_1_2 should remain in the pipeline.
         pipeline.removeChildNodesFor(NODE_1_1);
         assertThat(pipeline.size()).isEqualTo(5);
     }
@@ -578,7 +581,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -616,7 +619,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
         List<String> expected = Arrays.asList(NODE_1_1, NODE_1_1_1);
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -637,7 +640,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
     public void resolvedAnimatedImage_canStorePlayAndResetOnVisible() {
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -670,7 +673,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
     public void resolvedAnimatedImage_canStoreAndPlayOnVisibleOnce() {
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -683,6 +686,8 @@ public class ProtoLayoutDynamicDataPipelineTest {
         pipeline.newPipelineMaker()
                 .addResolvedAnimatedImage(drawableAvd, triggerTileVisibleOnce, TEST_POS_ID)
                 .commit(mRootContainer, /* isReattaching= */ false);
+
+        // OnVisible animations haven't started yet, so we should be able to trigger them manually.
 
         pipeline.playAvdAnimations(InnerCase.ON_LOAD_TRIGGER);
         expect.that(drawableAvd.started).isFalse();
@@ -701,7 +706,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
     public void resolvedAnimatedImage_canStorePlayAndResetOnLoad() {
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -713,10 +718,8 @@ public class ProtoLayoutDynamicDataPipelineTest {
                 .addResolvedAnimatedImage(drawableAvd, triggerTileLoad, TEST_POS_ID)
                 .commit(mRootContainer, /* isReattaching= */ false);
 
-        pipeline.playAvdAnimations(InnerCase.ON_VISIBLE_TRIGGER);
-        expect.that(drawableAvd.started).isFalse();
+        // In commit(), OnLoad animations are started.
 
-        pipeline.playAvdAnimations(InnerCase.ON_LOAD_TRIGGER);
         expect.that(drawableAvd.started).isTrue();
 
         pipeline.resetAvdAnimations(InnerCase.ON_LOAD_TRIGGER);
@@ -729,7 +732,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
         String boolStateKey = "KEY";
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -766,7 +769,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
         String boolStateKey = "KEY";
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -786,7 +789,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
         String boolStateKey = "KEY";
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -808,7 +811,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
         FixedQuotaManagerImpl quotaManager = new FixedQuotaManagerImpl(MAX_VALUE);
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         quotaManager,
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -837,11 +840,11 @@ public class ProtoLayoutDynamicDataPipelineTest {
         String staticValue = "static";
 
         AtomicReference<String> currentValue = new AtomicReference<>();
-        FixedQuotaManagerImpl quotaManager = new FixedQuotaManagerImpl(/* quotaCap= */ 3);
+        FixedQuotaManagerImpl quotaManager = new FixedQuotaManagerImpl(/* quotaCap= */ 2);
 
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         quotaManager);
@@ -853,7 +856,12 @@ public class ProtoLayoutDynamicDataPipelineTest {
                         .build();
         DynamicInt32 dynamicInt32 =
                 DynamicInt32.newBuilder()
-                        .setFloatToInt(FloatToInt32Op.newBuilder().setInput(dynamicFloat).build())
+                        .setFloatToInt(
+                                FloatToInt32Op.newBuilder()
+                                        .setRoundMode(
+                                                DynamicProto.FloatToInt32RoundMode.ROUND_MODE_ROUND)
+                                        .setInput(dynamicFloat)
+                                        .build())
                         .build();
         DynamicString dynamicString =
                 DynamicString.newBuilder()
@@ -863,7 +871,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
         makePipelineForDynamicString(
                 pipeline, dynamicString, staticValue, "posId", currentValue::set);
         pipeline.initNewLayout();
-        expect.that(pipeline.getDynamicExpressionsNodesCount()).isEqualTo(3);
+        expect.that(pipeline.getDynamicExpressionsNodesCost()).isEqualTo(2);
         // No quota left
         expect.that(quotaManager.getRemainingQuota()).isEqualTo(0);
         expect.that(currentValue.get()).isEqualTo(expectedOutput);
@@ -871,21 +879,20 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
     @Test
     public void newLayout_noExpressionNodesQuota_useStaticData() {
-
-        String dynamicValue = "dynamic";
         String staticValue = "static";
         AtomicReference<String> currentValue = new AtomicReference<>();
         FixedQuotaManagerImpl quotaManager = new FixedQuotaManagerImpl(/* quotaCap= */ 0);
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         quotaManager);
 
         DynamicString dynamicString =
                 DynamicString.newBuilder()
-                        .setFixed(FixedString.newBuilder().setValue(dynamicValue).build())
+                        .setInt32FormatOp(
+                                Int32FormatOp.newBuilder().setInput(fixedDynamicInt32(1)).build())
                         .build();
 
         makePipelineForDynamicString(
@@ -900,12 +907,12 @@ public class ProtoLayoutDynamicDataPipelineTest {
     public void newLayout_removeNodeInfo_releaseQuota() {
 
         int quota = 8;
-        DynamicBool expressionWith4Nodes = buildBoolExpressionWithFixedNumberOfNodes(4);
+        DynamicBool expressionWith4Nodes = buildBoolExpressionWithFixedNumberOfNodes(5);
         FixedQuotaManagerImpl quotaManager = new FixedQuotaManagerImpl(quota);
 
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         quotaManager);
@@ -936,18 +943,20 @@ public class ProtoLayoutDynamicDataPipelineTest {
         String nodeInfo2 = "posId2.1";
         String nodeInfo3 = "posId3.1";
         int quota = 8;
-        DynamicBool expressionWith5Nodes = buildBoolExpressionWithFixedNumberOfNodes(5);
-        DynamicBool expressionWith1Nodes = buildBoolExpressionWithFixedNumberOfNodes(1);
+        // Cost = 5
+        DynamicBool expressionWith5Nodes = buildBoolExpressionWithFixedNumberOfNodes(6);
+        // Cost = 1
+        DynamicBool expressionWith1Nodes = buildBoolExpressionWithFixedNumberOfNodes(2);
         FixedQuotaManagerImpl quotaManager = new FixedQuotaManagerImpl(quota);
 
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         quotaManager);
 
-        // Adding an expressions with 5 dynamic nodes to nodeInfo1.
+        // Adding an expressions cost = 4 to nodeInfo1.
         makePipelineForDynamicBool(pipeline, expressionWith5Nodes, nodeInfo1);
         pipeline.initNewLayout();
 
@@ -966,12 +975,12 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
         // Remove nodeInfo1 and add nodeInfo3. nodeInfo2 still in the pipeline.
         pipeline.mPositionIdTree.removeChildNodesFor(parentOfNode1);
-        // Adding an expressions with 1 dynamic node to nodeInfo3.
+        // Adding an expressions cost = 1 to nodeInfo3.
         makePipelineForDynamicBool(pipeline, expressionWith1Nodes, nodeInfo3);
 
         pipeline.initNewLayout();
-        // Now the pipeline will have a total expressionNodesCount of 6 = 5 + 1
-        // nodeInfo2 (failed to bound previously) and nodeInfo3(new) should be able to bound
+        // Now the pipeline will have a total expression cost of 6 = 5 + 1 nodeInfo2 (failed to
+        // bound previously) and nodeInfo3(new) should be able to bound
         expect.that(quotaManager.getRemainingQuota()).isEqualTo(2);
         expect.that(pipeline.mPositionIdTree.get(nodeInfo3).getFailedBindingRequest().size())
                 .isEqualTo(0);
@@ -983,15 +992,18 @@ public class ProtoLayoutDynamicDataPipelineTest {
     public void newLayout_multipleBound_noEnoughDynamicNodesQuota_satisfyOnlyFewBounds() {
 
         int quota = 11;
-        DynamicBool expressionWith12Nodes = buildBoolExpressionWithFixedNumberOfNodes(12);
+        // Cost = 12
+        DynamicBool expressionWith12Nodes = buildBoolExpressionWithFixedNumberOfNodes(13);
+        // Cost = 3
         DynamicBool expressionWith4Nodes = buildBoolExpressionWithFixedNumberOfNodes(4);
+        // Cost = 0
         DynamicBool expressionWith1Nodes = buildBoolExpressionWithFixedNumberOfNodes(1);
 
         FixedQuotaManagerImpl quotaManager = new FixedQuotaManagerImpl(quota);
 
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         quotaManager);
@@ -1004,7 +1016,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
         pipeline.initNewLayout();
 
-        // expressionWith12Nodes related BoundType should file to bind.
+        // expressionWith12Nodes related BoundType should fail to bind.
         expect.that(
                         pipeline.mPositionIdTree
                                 .findFirst((node) -> node.getPosId().equals("posId1.0"))
@@ -1022,7 +1034,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
         FixedQuotaManagerImpl quotaManager = new FixedQuotaManagerImpl(/* quotaCap= */ 0);
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         quotaManager,
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -1038,21 +1050,23 @@ public class ProtoLayoutDynamicDataPipelineTest {
         expect.that(quotaManager.isAllQuotaReleased()).isTrue();
     }
 
-    @NonNull
-    private static Trigger conditionTrigger(DynamicBool dynamicBool) {
+    private static @NonNull Trigger conditionTrigger(DynamicBool dynamicBool) {
         return Trigger.newBuilder()
                 .setOnConditionMetTrigger(
                         OnConditionMetTrigger.newBuilder().setCondition(dynamicBool).build())
                 .build();
     }
 
-    @NonNull
-    private static DynamicBool dynamicBool(String boolStateKey) {
+    private static @NonNull DynamicBool dynamicBool(String boolStateKey) {
         return DynamicBool.newBuilder()
                 .setStateSource(StateBoolSource.newBuilder().setSourceKey(boolStateKey).build())
                 .build();
     }
 
+    /**
+     * If count is equal to 1, this returns a FixedBool. Otherwise, it returns a dynamic expression
+     * containing one FixedBool and (count-1) NotBoolOp nodes.
+     */
     private static DynamicBool buildBoolExpressionWithFixedNumberOfNodes(int count) {
         if (count < 1) {
             throw new IllegalArgumentException();
@@ -1106,7 +1120,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
     public void resolvedSeekableAnimatedImage_canStoreAndRegisterWithAnimatableFixedFloat() {
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -1138,7 +1152,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
     public void resolvedSeekableAnimatedImage_canStoreAndRegisterWithAnimatableDynamicFloat() {
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -1183,7 +1197,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
     public void resolvedSeekableAnimatedImage_getSeekableAnimationTotalDurationMillis() {
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -1206,7 +1220,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
     public void whenInvisible_pausesAvds() {
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -1241,7 +1255,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
     public void visibilityChange_avdsStatusChange() {
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         new FixedQuotaManagerImpl(MAX_VALUE),
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -1353,7 +1367,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         quotaManager,
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -1369,7 +1383,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
         // one running, delayed animation is not started yet.
         expect.that(pipeline.getRunningAnimationsCount()).isEqualTo(1);
-        assertThat(results2).hasSize(0);
+        assertThat(results2).isEmpty();
 
         shadowOf(getMainLooper()).idleFor(100, TimeUnit.MILLISECONDS);
         assertAnimation(results1, start1, end1);
@@ -1406,7 +1420,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         quotaManager,
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -1422,7 +1436,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
         // one running, delayed animation is not started yet.
         expect.that(pipeline.getRunningAnimationsCount()).isEqualTo(1);
-        assertThat(results2).hasSize(0);
+        assertThat(results2).isEmpty();
 
         shadowOf(getMainLooper()).idle();
         assertAnimation(results1, start1, end1);
@@ -1442,7 +1456,9 @@ public class ProtoLayoutDynamicDataPipelineTest {
         float end1 = 10.0f;
         float end2 = 50.0f;
 
-        // 0~100: forward animation 100~300: reverse delay 300~400: reverse animation
+        // 0~100: forward animation
+        // 100~300: reverse delay
+        // 300~400: reverse animation
         DynamicFloat dynamicFloat1 =
                 animatableFixedFloat(start1, end1, /* duration= */ 100, /* delay= */ 0, 200, 2);
         List<Float> results1 = new ArrayList<>();
@@ -1462,7 +1478,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
 
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         quotaManager,
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -1519,7 +1535,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
         FixedQuotaManagerImpl quotaManager = new FixedQuotaManagerImpl(1);
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         quotaManager,
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -1673,16 +1689,15 @@ public class ProtoLayoutDynamicDataPipelineTest {
         expect.that(quotaManager.isAllQuotaReleased()).isTrue();
     }
 
-    @NonNull
-    private DynamicFloat animatableFixedFloat(float from, float to) {
+    private @NonNull DynamicFloat animatableFixedFloat(float from, float to) {
         return DynamicFloat.newBuilder()
                 .setAnimatableFixed(
                         AnimatableFixedFloat.newBuilder().setFromValue(from).setToValue(to))
                 .build();
     }
 
-    @NonNull
-    private DynamicFloat animatableFixedFloat(float from, float to, int duration, int delay) {
+    private @NonNull DynamicFloat animatableFixedFloat(
+            float from, float to, int duration, int delay) {
         return DynamicFloat.newBuilder()
                 .setAnimatableFixed(
                         AnimatableFixedFloat.newBuilder()
@@ -1699,8 +1714,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
                 .build();
     }
 
-    @NonNull
-    private DynamicFloat animatableFixedFloat(
+    private @NonNull DynamicFloat animatableFixedFloat(
             float from, float to, int duration, int delay, int repeatDelay, int iterations) {
         AnimationParameters alternateParameters =
                 AnimationParameters.newBuilder().setDelayMillis(repeatDelay).build();
@@ -1731,16 +1745,14 @@ public class ProtoLayoutDynamicDataPipelineTest {
                 .build();
     }
 
-    @NonNull
-    private DynamicColor animatableFixedColor(int from, int to) {
+    private @NonNull DynamicColor animatableFixedColor(int from, int to) {
         return DynamicColor.newBuilder()
                 .setAnimatableFixed(
                         AnimatableFixedColor.newBuilder().setFromArgb(from).setToArgb(to).build())
                 .build();
     }
 
-    @NonNull
-    private ProtoLayoutDynamicDataPipeline initPipelineWithAllAnimations(
+    private @NonNull ProtoLayoutDynamicDataPipeline initPipelineWithAllAnimations(
             List<DynamicFloat> dynamicFloats,
             @Nullable DynamicFloat boundProgress,
             @Nullable SeekableAnimatedVectorDrawable seekableDrawable,
@@ -1755,8 +1767,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
                 /* results= */ new ArrayList<>());
     }
 
-    @NonNull
-    private ProtoLayoutDynamicDataPipeline initPipelineWithAllAnimations(
+    private @NonNull ProtoLayoutDynamicDataPipeline initPipelineWithAllAnimations(
             @NonNull List<DynamicFloat> dynamicFloats,
             @Nullable DynamicFloat boundProgress,
             @Nullable SeekableAnimatedVectorDrawable seekableDrawable,
@@ -1769,7 +1780,7 @@ public class ProtoLayoutDynamicDataPipelineTest {
                 Trigger.newBuilder().setOnLoadTrigger(OnLoadTrigger.getDefaultInstance()).build();
         ProtoLayoutDynamicDataPipeline pipeline =
                 new ProtoLayoutDynamicDataPipeline(
-                        /* sensorGateway= */ null,
+                        /* platformDataProviders= */ ImmutableMap.of(),
                         mStateStore,
                         quotaManager,
                         new FixedQuotaManagerImpl(MAX_VALUE));
@@ -1813,19 +1824,18 @@ public class ProtoLayoutDynamicDataPipelineTest {
         ProtoLayoutDynamicDataPipeline pipeline =
                 enableAnimations
                         ? new ProtoLayoutDynamicDataPipeline(
-                                /* sensorGateway= */ null,
+                                /* platformDataProviders= */ ImmutableMap.of(),
                                 mStateStore,
                                 new FixedQuotaManagerImpl(MAX_VALUE),
                                 new FixedQuotaManagerImpl(MAX_VALUE))
                         : new ProtoLayoutDynamicDataPipeline(
-                                /* sensorGateway= */ null, mStateStore);
+                                /* platformDataProviders= */ ImmutableMap.of(), mStateStore);
         shadowOf(getMainLooper()).idle();
 
         pipeline.setFullyVisible(true);
         pipeline.newPipelineMaker()
                 .addPipelineFor(proto, TEST_POS_ID, receiver)
                 .commit(mRootContainer, /* isReattaching= */ false);
-        shadowOf(getMainLooper()).runOneTask();
         if (enableAnimations) {
             assertThat(pipeline.getRunningAnimationsCount()).isEqualTo(animationsNum);
         }
@@ -1841,7 +1851,8 @@ public class ProtoLayoutDynamicDataPipelineTest {
         AddToListCallback<Float> receiver =
                 new AddToListCallback<>(results, /* invalidList= */ null);
         ProtoLayoutDynamicDataPipeline pipeline =
-                new ProtoLayoutDynamicDataPipeline(/* sensorGateway= */ null, mStateStore);
+                new ProtoLayoutDynamicDataPipeline(
+                        /* platformDataProviders= */ ImmutableMap.of(), mStateStore);
         shadowOf(getMainLooper()).idle();
 
         pipeline.setFullyVisible(true);
@@ -1859,7 +1870,8 @@ public class ProtoLayoutDynamicDataPipelineTest {
         AddToListCallback<Integer> receiver =
                 new AddToListCallback<>(results, /* invalidList= */ null);
         ProtoLayoutDynamicDataPipeline pipeline =
-                new ProtoLayoutDynamicDataPipeline(/* sensorGateway= */ null, mStateStore);
+                new ProtoLayoutDynamicDataPipeline(
+                        /* platformDataProviders= */ ImmutableMap.of(), mStateStore);
         shadowOf(getMainLooper()).idle();
 
         pipeline.setFullyVisible(true);
@@ -1877,7 +1889,8 @@ public class ProtoLayoutDynamicDataPipelineTest {
         AddToListCallback<Float> receiver =
                 new AddToListCallback<>(results, /* invalidList= */ null);
         ProtoLayoutDynamicDataPipeline pipeline =
-                new ProtoLayoutDynamicDataPipeline(/* sensorGateway= */ null, mStateStore);
+                new ProtoLayoutDynamicDataPipeline(
+                        /* platformDataProviders= */ ImmutableMap.of(), mStateStore);
         shadowOf(getMainLooper()).idle();
 
         pipeline.setFullyVisible(true);
@@ -1895,7 +1908,8 @@ public class ProtoLayoutDynamicDataPipelineTest {
         AddToListCallback<Float> receiver =
                 new AddToListCallback<>(results, /* invalidList= */ null);
         ProtoLayoutDynamicDataPipeline pipeline =
-                new ProtoLayoutDynamicDataPipeline(/* sensorGateway= */ null, mStateStore);
+                new ProtoLayoutDynamicDataPipeline(
+                        /* platformDataProviders= */ ImmutableMap.of(), mStateStore);
         shadowOf(getMainLooper()).idle();
 
         pipeline.setFullyVisible(true);
@@ -1913,7 +1927,8 @@ public class ProtoLayoutDynamicDataPipelineTest {
         AddToListCallback<Integer> receiver =
                 new AddToListCallback<>(results, /* invalidList= */ null);
         ProtoLayoutDynamicDataPipeline pipeline =
-                new ProtoLayoutDynamicDataPipeline(/* sensorGateway= */ null, mStateStore);
+                new ProtoLayoutDynamicDataPipeline(
+                        /* platformDataProviders= */ ImmutableMap.of(), mStateStore);
         shadowOf(getMainLooper()).idle();
 
         pipeline.setFullyVisible(true);
@@ -1926,20 +1941,20 @@ public class ProtoLayoutDynamicDataPipelineTest {
     }
 
     private void setFloatStateVal(String key, float val) {
-        mStateStore.setStateEntryValuesProto(
+        mStateStore.setAppStateEntryValuesProto(
                 ImmutableMap.of(
-                        key,
-                        StateEntryValue.newBuilder()
+                        new AppDataKey<DynamicBuilders.DynamicFloat>(key),
+                        DynamicDataValue.newBuilder()
                                 .setFloatVal(FixedFloat.newBuilder().setValue(val))
                                 .build()));
         shadowOf(getMainLooper()).idle();
     }
 
     private void setBoolStateVal(String key, boolean val) {
-        mStateStore.setStateEntryValuesProto(
+        mStateStore.setAppStateEntryValuesProto(
                 ImmutableMap.of(
-                        key,
-                        StateEntryValue.newBuilder()
+                        new AppDataKey<DynamicBuilders.DynamicBool>(key),
+                        DynamicDataValue.newBuilder()
                                 .setBoolVal(FixedBool.newBuilder().setValue(val))
                                 .build()));
         shadowOf(getMainLooper()).idle();
@@ -1979,56 +1994,6 @@ public class ProtoLayoutDynamicDataPipelineTest {
                             .build());
         } catch (NotFoundException | ResourceAccessException ex) {
             return null;
-        }
-    }
-
-    private static class TestAnimatedVectorDrawable extends AnimatedVectorDrawable {
-        public boolean started = false;
-        public boolean reset = false;
-
-        // We need to intercept callbacks and save it in this test class as shadow drawable doesn't
-        // seem to call onEnd listener, meaning that quota won't be freed and we would get failing
-        // test.
-        private final List<AnimationCallback> mAnimationCallbacks = new ArrayList<>();
-
-        @Override
-        public void start() {
-            super.start();
-            started = true;
-            reset = false;
-        }
-
-        @Override
-        public void registerAnimationCallback(@NonNull AnimationCallback callback) {
-            super.registerAnimationCallback(callback);
-            mAnimationCallbacks.add(callback);
-        }
-
-        @Override
-        public boolean unregisterAnimationCallback(@NonNull AnimationCallback callback) {
-            mAnimationCallbacks.remove(callback);
-            return super.unregisterAnimationCallback(callback);
-        }
-
-        @Override
-        public void stop() {
-            super.stop();
-            started = false;
-            mAnimationCallbacks.forEach(c -> c.onAnimationEnd(this));
-        }
-
-        @Override
-        public void reset() {
-            super.reset();
-            started = false;
-            reset = true;
-            mAnimationCallbacks.forEach(c -> c.onAnimationEnd(this));
-        }
-
-        @Override
-        public boolean isRunning() {
-            super.isRunning();
-            return started;
         }
     }
 }

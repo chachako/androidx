@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-@file:RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
-
 package androidx.camera.camera2.pipe.compat
 
 import android.hardware.camera2.CameraAccessException
-import androidx.annotation.RequiresApi
 import androidx.camera.camera2.pipe.CameraError
 import androidx.camera.camera2.pipe.CameraId
+import androidx.camera.camera2.pipe.core.Log
 import androidx.camera.camera2.pipe.internal.CameraErrorListener
 
 /**
@@ -55,10 +53,21 @@ internal inline fun <T> catchAndReportCameraExceptions(
     try {
         return block()
     } catch (e: Exception) {
+        Log.warn { "Unexpected error: " + e.message }
         when (e) {
+            is CameraAccessException -> {
+                cameraErrorListener.onCameraError(
+                    cameraId,
+                    CameraError.from(e),
+                    // CameraAccessException indicates the task failed because the camera is
+                    // unavailable, such as when the camera is in use or disconnected. Such errors
+                    // can be recovered when the camera becomes available.
+                    willAttemptRetry = true,
+                )
+                return null
+            }
             is IllegalArgumentException,
             is IllegalStateException,
-            is CameraAccessException,
             is SecurityException,
             is UnsupportedOperationException,
             is NullPointerException -> {
@@ -69,7 +78,6 @@ internal inline fun <T> catchAndReportCameraExceptions(
                 )
                 return null
             }
-
             else -> throw e
         }
     }

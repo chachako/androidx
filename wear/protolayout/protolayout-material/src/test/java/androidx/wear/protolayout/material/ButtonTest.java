@@ -22,6 +22,9 @@ import static androidx.wear.protolayout.material.ButtonDefaults.DEFAULT_SIZE;
 import static androidx.wear.protolayout.material.ButtonDefaults.EXTRA_LARGE_SIZE;
 import static androidx.wear.protolayout.material.ButtonDefaults.LARGE_SIZE;
 import static androidx.wear.protolayout.material.ButtonDefaults.PRIMARY_COLORS;
+import static androidx.wear.protolayout.materialcore.Button.METADATA_TAG_CUSTOM_CONTENT;
+import static androidx.wear.protolayout.materialcore.Button.METADATA_TAG_ICON;
+import static androidx.wear.protolayout.materialcore.Button.METADATA_TAG_TEXT;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -29,8 +32,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.content.Context;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.wear.protolayout.ActionBuilders.LaunchAction;
@@ -44,6 +45,8 @@ import androidx.wear.protolayout.ModifiersBuilders.Modifiers;
 import androidx.wear.protolayout.TypeBuilders.StringProp;
 import androidx.wear.protolayout.expression.DynamicBuilders.DynamicString;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.internal.DoNotInstrument;
@@ -77,7 +80,7 @@ public class ButtonTest {
                 DEFAULT_SIZE,
                 new ButtonColors(Colors.PRIMARY, 0),
                 null,
-                Button.METADATA_TAG_CUSTOM_CONTENT,
+                METADATA_TAG_CUSTOM_CONTENT,
                 null,
                 null,
                 null,
@@ -102,7 +105,7 @@ public class ButtonTest {
                 mSize,
                 mButtonColors,
                 CONTENT_DESCRIPTION,
-                Button.METADATA_TAG_CUSTOM_CONTENT,
+                METADATA_TAG_CUSTOM_CONTENT,
                 null,
                 null,
                 null,
@@ -123,7 +126,7 @@ public class ButtonTest {
                 DEFAULT_SIZE,
                 PRIMARY_COLORS,
                 CONTENT_DESCRIPTION,
-                Button.METADATA_TAG_ICON,
+                METADATA_TAG_ICON,
                 null,
                 RESOURCE_ID,
                 null,
@@ -144,7 +147,7 @@ public class ButtonTest {
                 LARGE_SIZE,
                 PRIMARY_COLORS,
                 CONTENT_DESCRIPTION,
-                Button.METADATA_TAG_ICON,
+                METADATA_TAG_ICON,
                 null,
                 RESOURCE_ID,
                 null,
@@ -166,7 +169,7 @@ public class ButtonTest {
                 DEFAULT_SIZE,
                 PRIMARY_COLORS,
                 CONTENT_DESCRIPTION,
-                Button.METADATA_TAG_ICON,
+                METADATA_TAG_ICON,
                 null,
                 RESOURCE_ID,
                 null,
@@ -186,7 +189,7 @@ public class ButtonTest {
                 DEFAULT_SIZE,
                 PRIMARY_COLORS,
                 CONTENT_DESCRIPTION,
-                Button.METADATA_TAG_TEXT,
+                METADATA_TAG_TEXT,
                 TEXT,
                 null,
                 null,
@@ -207,7 +210,7 @@ public class ButtonTest {
                 EXTRA_LARGE_SIZE,
                 PRIMARY_COLORS,
                 CONTENT_DESCRIPTION,
-                Button.METADATA_TAG_TEXT,
+                METADATA_TAG_TEXT,
                 TEXT,
                 null,
                 null,

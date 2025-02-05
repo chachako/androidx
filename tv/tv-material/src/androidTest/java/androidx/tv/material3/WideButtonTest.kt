@@ -25,7 +25,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.testTag
@@ -44,8 +43,8 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performKeyInput
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
@@ -54,37 +53,54 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-@OptIn(
-    ExperimentalComposeUiApi::class,
-    ExperimentalTestApi::class,
-    ExperimentalTvMaterial3Api::class
-)
+@OptIn(ExperimentalTestApi::class, ExperimentalTvMaterial3Api::class)
 @MediumTest
 @RunWith(AndroidJUnit4::class)
 class WideButtonTest {
 
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule()
 
     @Test
     fun wideButton_defaultSemantics() {
         rule.setContent {
             Box {
                 WideButton(
-                    onClick = { },
-                    modifier = Modifier
-                        .testTag(WideButtonTag),
+                    onClick = {},
+                    modifier = Modifier.testTag(WideButtonTag),
                     title = { Text(text = "Settings") },
-                    icon = {
-                        Icon(imageVector = Icons.Default.Settings, contentDescription = "")
-                    },
+                    icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "") },
                     subtitle = { Text(text = "Update device preferences") }
                 )
             }
         }
 
-        rule.onNodeWithTag(WideButtonTag)
+        rule
+            .onNodeWithTag(WideButtonTag)
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertHasClickAction()
+            .assertIsEnabled()
+    }
+
+    @Test
+    fun wideButton_longClickSemantics() {
+        rule.setContent {
+            Box {
+                WideButton(
+                    onClick = {},
+                    onLongClick = {},
+                    modifier = Modifier.testTag(WideButtonTag),
+                    title = { Text(text = "Settings") },
+                    icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "") },
+                    subtitle = { Text(text = "Update device preferences") }
+                )
+            }
+        }
+
+        rule
+            .onNodeWithTag(WideButtonTag)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertHasClickAction()
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick))
             .assertIsEnabled()
     }
 
@@ -93,20 +109,18 @@ class WideButtonTest {
         rule.setContent {
             Box {
                 WideButton(
-                    onClick = { },
-                    modifier = Modifier
-                        .testTag(WideButtonTag),
+                    onClick = {},
+                    modifier = Modifier.testTag(WideButtonTag),
                     enabled = false,
                     title = { Text(text = "Settings") },
-                    icon = {
-                        Icon(imageVector = Icons.Default.Settings, contentDescription = "")
-                    },
+                    icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "") },
                     subtitle = { Text(text = "Update device preferences") }
                 )
             }
         }
 
-        rule.onNodeWithTag(WideButtonTag)
+        rule
+            .onNodeWithTag(WideButtonTag)
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
             .assertIsNotEnabled()
     }
@@ -120,22 +134,42 @@ class WideButtonTest {
             Box {
                 WideButton(
                     onClick = onClick,
-                    modifier = Modifier
-                        .testTag(WideButtonTag),
+                    modifier = Modifier.testTag(WideButtonTag),
                     title = { Text(text = "Settings") },
-                    icon = {
-                        Icon(imageVector = Icons.Default.Settings, contentDescription = "")
-                    },
+                    icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "") },
                     subtitle = { Text(text = "Update device preferences") }
                 )
             }
         }
-        rule.onNodeWithTag(WideButtonTag)
-            .performSemanticsAction(SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(Key.DirectionCenter) }
-        rule.runOnIdle {
-            Truth.assertThat(counter).isEqualTo(1)
+        rule.onNodeWithTag(WideButtonTag).requestFocus().performKeyInput {
+            pressKey(Key.DirectionCenter)
         }
+        rule.runOnIdle { Truth.assertThat(counter).isEqualTo(1) }
+    }
+
+    @Test
+    fun wideButton_findByTagAndLongClick() {
+        var counter = 0
+        val onLongClick: () -> Unit = { ++counter }
+
+        rule.setContent {
+            Box {
+                WideButton(
+                    onClick = {},
+                    onLongClick = onLongClick,
+                    modifier = Modifier.testTag(WideButtonTag),
+                    title = { Text(text = "Settings") },
+                    icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "") },
+                    subtitle = { Text(text = "Update device preferences") }
+                )
+            }
+        }
+
+        rule
+            .onNodeWithTag(WideButtonTag)
+            .requestFocus()
+            .performLongKeyPress(rule, Key.DirectionCenter)
+        rule.runOnIdle { Truth.assertThat(counter).isEqualTo(1) }
     }
 
     @Test
@@ -145,22 +179,20 @@ class WideButtonTest {
             Box {
                 WideButton(
                     onClick = { enabled = false },
-                    modifier = Modifier
-                        .testTag(WideButtonTag),
+                    modifier = Modifier.testTag(WideButtonTag),
                     enabled = enabled,
                     title = { Text(text = "Settings") },
-                    icon = {
-                        Icon(imageVector = Icons.Default.Settings, contentDescription = "")
-                    },
+                    icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "") },
                     subtitle = { Text(text = "Update device preferences") }
                 )
             }
         }
-        rule.onNodeWithTag(WideButtonTag)
+        rule
+            .onNodeWithTag(WideButtonTag)
             // Confirm the button starts off enabled, with a click action
             .assertHasClickAction()
             .assertIsEnabled()
-            .performSemanticsAction(SemanticsActions.RequestFocus)
+            .requestFocus()
             .performKeyInput { pressKey(Key.DirectionCenter) }
             // Then confirm it's disabled with click action after clicking it
             .assertHasClickAction()
@@ -194,18 +226,18 @@ class WideButtonTest {
             }
         }
 
-        rule.onNodeWithTag(watchButtonTag)
-            .performSemanticsAction(SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(Key.DirectionCenter) }
+        rule.onNodeWithTag(watchButtonTag).requestFocus().performKeyInput {
+            pressKey(Key.DirectionCenter)
+        }
 
         rule.runOnIdle {
             Truth.assertThat(watchButtonCounter).isEqualTo(1)
             Truth.assertThat(playButtonCounter).isEqualTo(0)
         }
 
-        rule.onNodeWithTag(playButtonTag)
-            .performSemanticsAction(SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(Key.DirectionCenter) }
+        rule.onNodeWithTag(playButtonTag).requestFocus().performKeyInput {
+            pressKey(Key.DirectionCenter)
+        }
 
         rule.runOnIdle {
             Truth.assertThat(watchButtonCounter).isEqualTo(1)
@@ -218,26 +250,26 @@ class WideButtonTest {
         rule.setContent {
             Box {
                 WideButton(
-                    onClick = { },
-                    modifier = Modifier
-                        .testTag(WideButtonTag),
+                    onClick = {},
+                    modifier = Modifier.testTag(WideButtonTag),
                     contentPadding = WideButtonDefaults.ContentPadding,
                     title = {
                         Text(
                             text = "Email",
-                            modifier = Modifier
-                                .testTag(WideButtonTextTag)
-                                .semantics(mergeDescendants = true) {}
+                            modifier =
+                                Modifier.testTag(WideButtonTextTag).semantics(
+                                    mergeDescendants = true
+                                ) {}
                         )
-                            },
+                    },
                     icon = {
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "",
-                            modifier = Modifier
-                                .size(WideButtonIconSize)
-                                .testTag(WideButtonIconTag)
-                                .semantics(mergeDescendants = true) {}
+                            modifier =
+                                Modifier.size(WideButtonIconSize)
+                                    .testTag(WideButtonIconTag)
+                                    .semantics(mergeDescendants = true) {}
                         )
                     }
                 )

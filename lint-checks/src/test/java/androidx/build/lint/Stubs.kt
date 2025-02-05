@@ -26,69 +26,72 @@ class Stubs {
 
     companion object {
 
-        /* ktlint-disable max-line-length */
-
-        /**
-         * [TestFile] containing Keep.java from the annotation library.
-         */
-        val Keep = TestFiles.java(
-            """
+        /** [TestFile] containing Keep.java from the annotation library. */
+        val Keep =
+            TestFiles.java(
+                """
 package androidx.annotation;
 
 public @interface Keep {
 }
             """
-        )
+            )
 
-        val RunWith = TestFiles.kotlin(
-            """
+        val RunWith =
+            TestFiles.kotlin(
+                """
 package org.junit.runner
 
 annotation class RunWith(val value: KClass<*>)
             """
-        )
+            )
 
-        val JUnit4Runner = TestFiles.kotlin(
-            """
+        val JUnit4Runner =
+            TestFiles.kotlin(
+                """
 package org.junit.runners
 
 class JUnit4
             """
-        )
+            )
 
-        val ParameterizedRunner = TestFiles.kotlin(
-            """
+        val ParameterizedRunner =
+            TestFiles.kotlin(
+                """
 package org.junit.runners
 
 class Parameterized
             """
-        )
+            )
 
-        val AndroidJUnit4Runner = TestFiles.kotlin(
-            """
+        val AndroidJUnit4Runner =
+            TestFiles.kotlin(
+                """
 package androidx.test.ext.junit.runners
 
 class AndroidJUnit4
             """
-        )
+            )
 
-        val TestSizeAnnotations = TestFiles.kotlin(
-            """
+        val TestSizeAnnotations =
+            TestFiles.kotlin(
+                """
 package androidx.test.filters
 
 annotation class SmallTest
 annotation class MediumTest
 annotation class LargeTest
             """
-        )
+            )
 
-        val TestAnnotation = TestFiles.kotlin(
-            """
+        val TestAnnotation =
+            TestFiles.kotlin(
+                """
 package org.junit
 
 annotation class Test
             """
-        )
+            )
 
         /**
          * [TestFile] containing OptIn.kt from the Kotlin standard library.
@@ -96,8 +99,9 @@ annotation class Test
          * This is a workaround for the Kotlin standard library used by the Lint test harness not
          * including the Experimental annotation by default.
          */
-        val OptIn = TestFiles.kotlin(
-            """
+        val OptIn =
+            TestFiles.kotlin(
+                """
 package kotlin
 
 import kotlin.annotation.AnnotationRetention.BINARY
@@ -131,13 +135,12 @@ public annotation class OptIn(
     vararg val markerClass: KClass<out Annotation>
 )
             """
-        )
+            )
 
-        /**
-         * [TestFile] containing ChecksSdkIntAtLeast.java from the annotation library.
-         */
-        val ChecksSdkIntAtLeast = TestFiles.java(
-            """
+        /** [TestFile] containing ChecksSdkIntAtLeast.java from the annotation library. */
+        val ChecksSdkIntAtLeast =
+            TestFiles.java(
+                """
 package androidx.annotation;
 
 import static java.lang.annotation.ElementType.FIELD;
@@ -158,10 +161,11 @@ public @interface ChecksSdkIntAtLeast {
     int lambda() default -1;
 }
             """
-        )
+            )
 
-        val RequiresApi = TestFiles.java(
-            """
+        val RequiresApi =
+            TestFiles.java(
+                """
 package androidx.annotation;
 
 import static java.lang.annotation.ElementType.CONSTRUCTOR;
@@ -185,10 +189,11 @@ public @interface RequiresApi {
     int api() default 1;
 }
             """
-        )
+            )
 
-        val IntRange = TestFiles.java(
-            """
+        val IntRange =
+            TestFiles.java(
+                """
 package androidx.annotation;
 
 import static java.lang.annotation.ElementType.ANNOTATION_TYPE;
@@ -210,10 +215,11 @@ public @interface IntRange {
     long to() default Long.MAX_VALUE;
 }
             """
-        )
+            )
 
-        val RestrictTo = TestFiles.java(
-            """
+        val RestrictTo =
+            TestFiles.java(
+                """
 package androidx.annotation;
 
 import static java.lang.annotation.ElementType.ANNOTATION_TYPE;
@@ -237,6 +243,7 @@ public @interface RestrictTo {
         LIBRARY,
         LIBRARY_GROUP,
         LIBRARY_GROUP_PREFIX,
+        /** @deprecated Use {@link #LIBRARY_GROUP_PREFIX} instead */
         @Deprecated
         GROUP_ID,
         TESTS,
@@ -244,27 +251,30 @@ public @interface RestrictTo {
     }
 }
             """
-        )
+            )
 
-        val JetBrainsAnnotations = TestFiles.kotlin(
-            """
+        val JetBrainsAnnotations =
+            TestFiles.kotlin(
+                """
 package org.jetbrains.annotations
 
 annotation class NotNull
 annotation class Nullable
             """
-        )
+            )
 
-        val IgnoreAnnotation = TestFiles.kotlin(
-            """
+        val IgnoreAnnotation =
+            TestFiles.kotlin(
+                """
 package org.junit
 
 annotation class Ignore
             """
-        )
+            )
 
-        val DoNotInline = TestFiles.java(
-            """
+        val DoNotInline =
+            TestFiles.java(
+                """
 package androidx.annotation;
 
 import static java.lang.annotation.ElementType.METHOD;
@@ -278,10 +288,11 @@ import java.lang.annotation.Target;
 public @interface DoNotInline {
 }
             """
-        )
+            )
 
-        val DeprecatedSinceApi = TestFiles.kotlin(
-            """
+        val DeprecatedSinceApi =
+            TestFiles.kotlin(
+                """
 package androidx.annotation
 
 import kotlin.annotation.AnnotationTarget.ANNOTATION_CLASS
@@ -299,23 +310,24 @@ public annotation class DeprecatedSinceApi(
     val message: String = ""
 )
             """
-        )
+            )
 
-        val JvmDefaultWithCompatibility = TestFiles.kotlin(
-            """
+        val JvmDefaultWithCompatibility =
+            TestFiles.kotlin(
+                """
 package kotlin.jvm
 
 @Retention(AnnotationRetention.SOURCE)
 @Target(AnnotationTarget.CLASS)
 annotation class JvmDefaultWithCompatibility
-            """.trimIndent()
-        )
-
-        /**
-         * [TestFile] containing OptIn.kt from the AndroidX experimental annotation library.
-         */
-        val JetpackOptIn: TestFile = LintDetectorTest.kotlin(
             """
+                    .trimIndent()
+            )
+
+        /** [TestFile] containing OptIn.kt from the AndroidX experimental annotation library. */
+        val JetpackOptIn: TestFile =
+            LintDetectorTest.kotlin(
+                """
 package androidx.annotation
 
 import kotlin.annotation.Retention
@@ -339,14 +351,16 @@ annotation class OptIn(
     @get:Suppress("ArrayReturn")
     vararg val markerClass: KClass<out Annotation>
 )
-    """.trimIndent()
-        )
+    """
+                    .trimIndent()
+            )
 
         /**
          * [TestFile] containing RequiresOptIn.kt from the AndroidX experimental annotation library.
          */
-        val JetpackRequiresOptIn: TestFile = LintDetectorTest.kotlin(
-            """
+        val JetpackRequiresOptIn: TestFile =
+            LintDetectorTest.kotlin(
+                """
 package androidx.annotation
 
 import kotlin.annotation.Retention
@@ -362,14 +376,14 @@ annotation class RequiresOptIn(
         ERROR
     }
 }
-    """.trimIndent()
-        )
+    """
+                    .trimIndent()
+            )
 
-        /**
-         * [TestFile] containing VisibleForTesting.kt from the AndroidX annotation library.
-         */
-        val VisibleForTesting: TestFile = LintDetectorTest.kotlin(
-            """
+        /** [TestFile] containing VisibleForTesting.kt from the AndroidX annotation library. */
+        val VisibleForTesting: TestFile =
+            LintDetectorTest.kotlin(
+                """
 package androidx.annotation
 
 @MustBeDocumented
@@ -384,8 +398,63 @@ public annotation class VisibleForTesting(
         public const val NONE: Int = 5
     }
 }
-            """.trimIndent()
-        )
-        /* ktlint-enable max-line-length */
+            """
+                    .trimIndent()
+            )
+
+        /** Contains only a few of the isAtLeastX implementations from BuildCompat for testing */
+        val BuildCompat: TestFile =
+            LintDetectorTest.java(
+                """
+package androidx.core.os;
+
+import android.os.Build;
+import android.os.Build.VERSION;
+
+import androidx.annotation.ChecksSdkIntAtLeast;
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresOptIn;
+import androidx.annotation.RestrictTo;
+
+import java.util.Locale;
+
+public class BuildCompat {
+    private BuildCompat() {}
+
+    @RestrictTo(RestrictTo.Scope.TESTS)
+    protected static boolean isAtLeastPreReleaseCodename(@NonNull String codename, @NonNull String buildCodename) {
+        if ("REL".equals(buildCodename)) {
+            return false;
+        }
+        final String buildCodenameUpper = buildCodename.toUpperCase(Locale.ROOT);
+        final String codenameUpper = codename.toUpperCase(Locale.ROOT);
+        return buildCodenameUpper.compareTo(codenameUpper) >= 0;
+    }
+
+    @ChecksSdkIntAtLeast(api = Build.VERSION_CODES.N)
+    @Deprecated
+    public static boolean isAtLeastN() {
+        return VERSION.SDK_INT >= 24;
+    }
+
+    @PrereleaseSdkCheck
+    @ChecksSdkIntAtLeast(api = 32, codename = "Sv2")
+    @Deprecated
+    public static boolean isAtLeastSv2() {
+        return VERSION.SDK_INT >= 32 || (VERSION.SDK_INT >= 31 && isAtLeastPreReleaseCodename("Sv2", VERSION.CODENAME));
+    }
+
+    @PrereleaseSdkCheck
+    @ChecksSdkIntAtLeast(codename = "UpsideDownCake")
+    public static boolean isAtLeastU() {
+        return VERSION.SDK_INT >= 33 && isAtLeastPreReleaseCodename("UpsideDownCake", VERSION.CODENAME);
+    }
+
+    @RequiresOptIn
+    public @interface PrereleaseSdkCheck { }
+}
+        """
+                    .trimIndent()
+            )
     }
 }

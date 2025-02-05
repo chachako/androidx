@@ -16,29 +16,26 @@
 
 package androidx.camera.video.internal;
 
-import static androidx.camera.video.internal.utils.DynamicRangeUtil.DR_TO_VP_BIT_DEPTH_MAP;
-import static androidx.camera.video.internal.utils.DynamicRangeUtil.DR_TO_VP_FORMAT_MAP;
+import static androidx.camera.video.internal.utils.DynamicRangeUtil.isHdrSettingsMatched;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import androidx.camera.core.DynamicRange;
 import androidx.camera.core.impl.EncoderProfilesProvider;
 import androidx.camera.core.impl.EncoderProfilesProxy;
 import androidx.camera.core.impl.EncoderProfilesProxy.ImmutableEncoderProfilesProxy;
 import androidx.camera.core.impl.EncoderProfilesProxy.VideoProfileProxy;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * An implementation that provides {@link EncoderProfilesProxy} containing video information
  * matched with the target {@link DynamicRange}.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 public class DynamicRangeMatchedEncoderProfilesProvider implements EncoderProfilesProvider {
 
     private final EncoderProfilesProvider mEncoderProfilesProvider;
@@ -62,14 +59,12 @@ public class DynamicRangeMatchedEncoderProfilesProvider implements EncoderProfil
     }
 
     /** {@inheritDoc} */
-    @Nullable
     @Override
-    public EncoderProfilesProxy getAll(int quality) {
+    public @Nullable EncoderProfilesProxy getAll(int quality) {
         return getProfilesInternal(quality);
     }
 
-    @Nullable
-    private EncoderProfilesProxy getProfilesInternal(int quality) {
+    private @Nullable EncoderProfilesProxy getProfilesInternal(int quality) {
         if (mEncoderProfilesCache.containsKey(quality)) {
             return mEncoderProfilesCache.get(quality);
         }
@@ -84,8 +79,7 @@ public class DynamicRangeMatchedEncoderProfilesProvider implements EncoderProfil
         return profiles;
     }
 
-    @Nullable
-    private static EncoderProfilesProxy filterUnmatchedDynamicRange(
+    private static @Nullable EncoderProfilesProxy filterUnmatchedDynamicRange(
             @Nullable EncoderProfilesProxy encoderProfiles, @NonNull DynamicRange dynamicRange) {
         if (encoderProfiles == null) {
             return null;
@@ -93,8 +87,7 @@ public class DynamicRangeMatchedEncoderProfilesProvider implements EncoderProfil
 
         List<VideoProfileProxy> validVideoProfiles = new ArrayList<>();
         for (VideoProfileProxy videoProfile : encoderProfiles.getVideoProfiles()) {
-            if (isBitDepthMatched(videoProfile, dynamicRange) && isHdrFormatMatched(videoProfile,
-                    dynamicRange)) {
+            if (isHdrSettingsMatched(videoProfile, dynamicRange)) {
                 validVideoProfiles.add(videoProfile);
             }
         }
@@ -105,19 +98,5 @@ public class DynamicRangeMatchedEncoderProfilesProvider implements EncoderProfil
                 encoderProfiles.getAudioProfiles(),
                 validVideoProfiles
         );
-    }
-
-    private static boolean isBitDepthMatched(@NonNull VideoProfileProxy videoProfile,
-            @NonNull DynamicRange dynamicRange) {
-        Set<Integer> matchedBitDepths = DR_TO_VP_BIT_DEPTH_MAP.get(dynamicRange.getBitDepth());
-
-        return matchedBitDepths != null && matchedBitDepths.contains(videoProfile.getBitDepth());
-    }
-
-    private static boolean isHdrFormatMatched(@NonNull VideoProfileProxy videoProfile,
-            @NonNull DynamicRange dynamicRange) {
-        Set<Integer> matchedHdrFormats = DR_TO_VP_FORMAT_MAP.get(dynamicRange.getFormat());
-
-        return matchedHdrFormats != null && matchedHdrFormats.contains(videoProfile.getHdrFormat());
     }
 }

@@ -15,6 +15,7 @@
  */
 package androidx.privacysandbox.sdkruntime.client.config
 
+import androidx.privacysandbox.sdkruntime.client.TestSdkConfigs
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
@@ -28,41 +29,35 @@ class LocalSdkConfigsHolderTest {
 
     @Test
     fun load_whenSdkTableNotExists_doesNotThrowException() {
-        val configHolder = LocalSdkConfigsHolder.load(
-            ApplicationProvider.getApplicationContext(),
-            sdkTableAssetName = "not-exists"
-        )
+        val configHolder =
+            LocalSdkConfigsHolder.load(
+                ApplicationProvider.getApplicationContext(),
+                sdkTableAssetName = "not-exists"
+            )
         val result = configHolder.getSdkConfig("sdk")
         assertThat(result).isNull()
     }
 
     @Test
     fun getSdkConfig_whenSdkExists_returnSdkInfo() {
-        val configHolder = LocalSdkConfigsHolder.load(
-            ApplicationProvider.getApplicationContext()
-        )
+        val configHolder = LocalSdkConfigsHolder.load(ApplicationProvider.getApplicationContext())
 
-        val result = configHolder.getSdkConfig(
-            "androidx.privacysandbox.sdkruntime.test.v1"
-        )
+        val result = configHolder.getSdkConfig(TestSdkConfigs.CURRENT.packageName)
 
-        assertThat(result)
-            .isEqualTo(
-                LocalSdkConfig(
-                    packageName = "androidx.privacysandbox.sdkruntime.test.v1",
-                    versionMajor = 42,
-                    dexPaths = listOf("RuntimeEnabledSdks/V1/classes.dex"),
-                    entryPoint = "androidx.privacysandbox.sdkruntime.test.v1.CompatProvider",
-                    javaResourcesRoot = "RuntimeEnabledSdks/V1/javaresources"
-                )
+        val expectedConfig =
+            LocalSdkConfig(
+                packageName = "androidx.privacysandbox.sdkruntime.testsdk.current",
+                versionMajor = 42,
+                dexPaths = listOf("test-sdks/current/classes.dex"),
+                entryPoint = "androidx.privacysandbox.sdkruntime.testsdk.CompatProvider",
             )
+
+        assertThat(result).isEqualTo(expectedConfig)
     }
 
     @Test
     fun getSdkConfig_whenSdkNotExists_returnNull() {
-        val configHolder = LocalSdkConfigsHolder.load(
-            ApplicationProvider.getApplicationContext()
-        )
+        val configHolder = LocalSdkConfigsHolder.load(ApplicationProvider.getApplicationContext())
 
         val result = configHolder.getSdkConfig("not-exists")
 

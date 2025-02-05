@@ -20,14 +20,17 @@ import static java.util.stream.Collectors.toMap;
 
 import android.annotation.SuppressLint;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
 import androidx.annotation.UiThread;
 import androidx.collection.ArrayMap;
 import androidx.collection.ArraySet;
-import androidx.wear.protolayout.expression.StateEntryBuilders;
-import androidx.wear.protolayout.expression.proto.StateEntryProto.StateEntryValue;
+import androidx.wear.protolayout.expression.AppDataKey;
+import androidx.wear.protolayout.expression.DynamicDataBuilders;
+import androidx.wear.protolayout.expression.DynamicDataKey;
+import androidx.wear.protolayout.expression.proto.DynamicDataProto.DynamicDataValue;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.Map;
@@ -42,156 +45,170 @@ import java.util.stream.Stream;
  * the main thread, and because updates will eventually affect the main thread, this whole class
  * must only be used from the UI thread.
  */
-public class StateStore {
-    /**
-     * Maximum number for state entries allowed for this {@link StateStore}.
-     *
-     * <p>The ProtoLayout state model is not designed to handle large volumes of layout provided
-     * state. So we limit the number of state entries to keep the on-the-wire size and state
-     * store update times manageable.
-     */
+public final class StateStore extends DataStore {
     @SuppressLint("MinMaxConstant")
-    public static final int MAX_STATE_ENTRY_COUNT = 100;
-    @NonNull private final Map<String, StateEntryValue> mCurrentState = new ArrayMap<>();
+    private static final int MAX_STATE_ENTRY_COUNT = 30;
 
-    @NonNull
-    private final Map<String, Set<DynamicTypeValueReceiverWithPreUpdate<StateEntryValue>>>
+    private static final String TAG = "ProtoLayoutStateStore";
+
+    private final @NonNull Map<AppDataKey<?>, DynamicDataValue> mCurrentAppState
+            = new ArrayMap<>();
+
+    private final
+            @NonNull Map<DynamicDataKey<?>,
+            Set<DynamicTypeValueReceiverWithPreUpdate<DynamicDataValue>>>
             mRegisteredCallbacks = new ArrayMap<>();
 
     /**
      * Creates a {@link StateStore}.
      *
      * @throws IllegalStateException if number of initialState entries is greater than
-     * {@link StateStore#MAX_STATE_ENTRY_COUNT}.
+     * {@link StateStore#getMaxStateEntryCount()}.
      */
-    @NonNull
-    public static StateStore create(
-            @NonNull Map<String, StateEntryBuilders.StateEntryValue> initialState) {
+    public static @NonNull StateStore create(
+            @NonNull Map<AppDataKey<?>, DynamicDataBuilders.DynamicDataValue<?>>
+                    initialState) {
         return new StateStore(toProto(initialState));
     }
 
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP_PREFIX)
-    public StateStore(@NonNull Map<String, StateEntryValue> initialState) {
-        if (initialState.size() > MAX_STATE_ENTRY_COUNT) {
+    public StateStore(
+            @NonNull Map<AppDataKey<?>, DynamicDataValue> initialState) {
+        if (initialState.size() > getMaxStateEntryCount()) {
             throw stateTooLargeException(initialState.size());
         }
-        mCurrentState.putAll(initialState);
+        mCurrentAppState.putAll(initialState);
     }
 
     /**
-     * Sets the given state, replacing the current state.
+     * Sets the given app state, replacing the current app state.
      *
      * <p>Informs registered listeners of changed values, invalidates removed values.
      *
      * @throws IllegalStateException if number of state entries is greater than
-     * {@link StateStore#MAX_STATE_ENTRY_COUNT}. The state will not update and old state entries
+     * {@link StateStore#getMaxStateEntryCount()}. The state will not update and old state entries
      * will stay in place.
      */
     @UiThread
-    public void setStateEntryValues(
-            @NonNull Map<String, StateEntryBuilders.StateEntryValue> newState) {
-        setStateEntryValuesProto(toProto(newState));
+    public void setAppStateEntryValues(
+            @NonNull Map<AppDataKey<?>, DynamicDataBuilders.DynamicDataValue<?>> newState) {
+        setAppStateEntryValuesProto(toProto(newState));
     }
 
     /**
-     * Sets the given state, replacing the current state.
+     * Sets the given app state, replacing the current app state.
      *
      * <p>Informs registered listeners of changed values, invalidates removed values.
      *
      * @throws IllegalStateException if number of state entries is larger than
-     * {@link StateStore#MAX_STATE_ENTRY_COUNT}. The state will not update and old state entries
+     * {@link StateStore#getMaxStateEntryCount()}. The state will not update and old state entries
      * will stay in place.
      */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP_PREFIX)
     @UiThread
-    public void setStateEntryValuesProto(@NonNull Map<String, StateEntryValue> newState) {
-        if (newState.size() > MAX_STATE_ENTRY_COUNT) {
+    public void setAppStateEntryValuesProto(
+            @NonNull Map<AppDataKey<?>, DynamicDataValue> newState) {
+        if (newState.size() > getMaxStateEntryCount()) {
             throw stateTooLargeException(newState.size());
         }
 
         // Figure out which nodes have actually changed.
-        Set<String> removedKeys = getRemovedKeys(newState);
-        Map<String, StateEntryValue> changedEntries = getChangedEntries(newState);
+        Set<AppDataKey<?>> removedKeys = getRemovedAppKeys(newState);
+        Map<AppDataKey<?>, DynamicDataValue> changedEntries = getChangedAppEntries(newState);
 
         Stream.concat(removedKeys.stream(), changedEntries.keySet().stream())
                 .forEach(
                         key -> {
-                            for (DynamicTypeValueReceiverWithPreUpdate<StateEntryValue> callback :
+                            for (DynamicTypeValueReceiverWithPreUpdate<DynamicDataValue> callback :
                                     mRegisteredCallbacks.getOrDefault(
                                             key, Collections.emptySet())) {
                                 callback.onPreUpdate();
                             }
                         });
 
-        mCurrentState.clear();
-        mCurrentState.putAll(newState);
+        mCurrentAppState.clear();
+        mCurrentAppState.putAll(newState);
 
-        for (String key : removedKeys) {
-            for (DynamicTypeValueReceiverWithPreUpdate<StateEntryValue> callback :
+        for (AppDataKey<?> key : removedKeys) {
+            for (DynamicTypeValueReceiverWithPreUpdate<DynamicDataValue> callback :
                     mRegisteredCallbacks.getOrDefault(key, Collections.emptySet())) {
                 callback.onInvalidated();
             }
         }
-        for (Entry<String, StateEntryValue> entry : changedEntries.entrySet()) {
-            for (DynamicTypeValueReceiverWithPreUpdate<StateEntryValue> callback :
+        for (Entry<AppDataKey<?>, DynamicDataValue> entry
+                : changedEntries.entrySet()) {
+            for (DynamicTypeValueReceiverWithPreUpdate<DynamicDataValue> callback :
                     mRegisteredCallbacks.getOrDefault(entry.getKey(), Collections.emptySet())) {
                 callback.onData(entry.getValue());
             }
         }
     }
 
-    /** Gets state with the given key. */
+    /** Gets dynamic value with the given {@code key}. */
     @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
     @UiThread
-    @Nullable
-    public StateEntryValue getStateEntryValuesProto(@NonNull String key) {
-        return mCurrentState.get(key);
+    @Override
+    public @Nullable DynamicDataValue getDynamicDataValuesProto(@NonNull DynamicDataKey<?> key) {
+        return mCurrentAppState.get(key);
     }
 
     /**
-     * Registers the given callback for updates to the state for the given key.
+     * Registers the given callback for updates to the data item for the given {@code key}.
      *
      * <p>Note that the callback will be executed on the UI thread.
      */
     @UiThread
+    @Override
     void registerCallback(
-            @NonNull String key,
-            @NonNull DynamicTypeValueReceiverWithPreUpdate<StateEntryValue> callback) {
+            @NonNull DynamicDataKey<?> key,
+            @NonNull DynamicTypeValueReceiverWithPreUpdate<DynamicDataValue> callback) {
         mRegisteredCallbacks.computeIfAbsent(key, k -> new ArraySet<>()).add(callback);
     }
 
-    /** Unregisters from receiving the updates. */
+    /** Unregisters the callback for the given {@code key} from receiving the updates. */
     @UiThread
+    @Override
     void unregisterCallback(
-            @NonNull String key,
-            @NonNull DynamicTypeValueReceiverWithPreUpdate<StateEntryValue> callback) {
-        Set<DynamicTypeValueReceiverWithPreUpdate<StateEntryValue>> callbackSet =
+            @NonNull DynamicDataKey<?> key,
+            @NonNull DynamicTypeValueReceiverWithPreUpdate<DynamicDataValue> callback) {
+
+        Set<DynamicTypeValueReceiverWithPreUpdate<DynamicDataValue>> callbackSet =
                 mRegisteredCallbacks.get(key);
         if (callbackSet != null) {
             callbackSet.remove(callback);
         }
     }
 
-    @NonNull
-    private static Map<String, StateEntryValue> toProto(
-            @NonNull Map<String, StateEntryBuilders.StateEntryValue> value) {
-        return value.entrySet().stream()
-                .collect(toMap(Entry::getKey, entry -> entry.getValue().toStateEntryValueProto()));
+    /**
+     * Returns the maximum number for state entries allowed for this {@link StateStore}.
+     *
+     * <p>The ProtoLayout state model is not designed to handle large volumes of layout provided
+     * state. So we limit the number of state entries to keep the on-the-wire size and state
+     * store update times manageable.
+     */
+    public static int getMaxStateEntryCount(){
+        return MAX_STATE_ENTRY_COUNT;
     }
 
-    @NonNull
-    private Set<String> getRemovedKeys(@NonNull Map<String, StateEntryValue> newState) {
-        Set<String> result = new ArraySet<>(mCurrentState.keySet());
+    private static @NonNull Map<AppDataKey<?>, DynamicDataValue> toProto(
+            @NonNull Map<AppDataKey<?>, DynamicDataBuilders.DynamicDataValue<?>> value) {
+        return value.entrySet().stream()
+                .collect(toMap(Entry::getKey, entry -> entry.getValue().toDynamicDataValueProto()));
+    }
+
+    private @NonNull Set<AppDataKey<?>> getRemovedAppKeys(
+            @NonNull Map<AppDataKey<?>, DynamicDataValue> newState) {
+        Set<AppDataKey<?>> result = new ArraySet<>(mCurrentAppState.keySet());
         result.removeAll(newState.keySet());
         return result;
     }
 
-    @NonNull
-    private Map<String, StateEntryValue> getChangedEntries(
-            @NonNull Map<String, StateEntryValue> newState) {
-        Map<String, StateEntryValue> result = new ArrayMap<>();
-        for (Entry<String, StateEntryValue> newEntry : newState.entrySet()) {
-            StateEntryValue currentEntry = mCurrentState.get(newEntry.getKey());
+    private @NonNull Map<AppDataKey<?>, DynamicDataValue> getChangedAppEntries(
+            @NonNull Map<AppDataKey<?>, DynamicDataValue> newState) {
+        Map<AppDataKey<?>, DynamicDataValue> result = new ArrayMap<>();
+        for (Entry<AppDataKey<?>, DynamicDataValue> newEntry
+                : newState.entrySet()) {
+            DynamicDataValue currentEntry = mCurrentAppState.get(newEntry.getKey());
             if (currentEntry == null || !currentEntry.equals(newEntry.getValue())) {
                 result.put(newEntry.getKey(), newEntry.getValue());
             }
@@ -204,6 +221,6 @@ public class StateStore {
                 String.format(
                         "Too many state entries: %d. The maximum number of allowed state entries "
                                 + "is %d.",
-                        stateSize, MAX_STATE_ENTRY_COUNT));
+                        stateSize, getMaxStateEntryCount()));
     }
 }

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<appfunctions>
+    <appfunction>
+        <components>
+            <id>unused</id>
+        </components>
+        <id>com.testdata.FakeNoArg#noArg</id>
+        <enabledByDefault>true</enabledByDefault>
+        <parameters>
+            <id>unused</id>
+            <isNullable>false</isNullable>
+            <type>3</type>
+        </parameters>
+        <response>
+            <id>unused</id>
+            <isNullable>false</isNullable>
+            <type>0</type>
+        </response>
+        <functionId>com.testdata.FakeNoArg#noArg</functionId>
+    </appfunction>
+</appfunctions>

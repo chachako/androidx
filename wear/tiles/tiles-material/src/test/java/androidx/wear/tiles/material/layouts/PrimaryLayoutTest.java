@@ -16,21 +16,17 @@
 
 package androidx.wear.tiles.material.layouts;
 
-import static androidx.wear.tiles.material.layouts.LayoutDefaults.DEFAULT_VERTICAL_SPACER_HEIGHT;
-
 import static com.google.common.truth.Truth.assertThat;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.content.Context;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.wear.tiles.material.CompactChip;
-import androidx.wear.tiles.material.Text;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.internal.DoNotInstrument;
@@ -54,18 +50,27 @@ public class PrimaryLayoutTest {
                             .build();
     private static final androidx.wear.tiles.LayoutElementBuilders.LayoutElement CONTENT =
             new androidx.wear.tiles.LayoutElementBuilders.Box.Builder().build();
-    private static final CompactChip PRIMARY_CHIP =
-            new CompactChip.Builder(CONTEXT, "Compact", CLICKABLE, DEVICE_PARAMETERS).build();
-    private static final Text PRIMARY_LABEL = new Text.Builder(CONTEXT, "Primary label").build();
-    private static final Text SECONDARY_LABEL =
-            new Text.Builder(CONTEXT, "Secondary label").build();
+    private static final androidx.wear.tiles.material.CompactChip PRIMARY_CHIP =
+            new androidx.wear.tiles.material.CompactChip.Builder(
+                            CONTEXT, "Compact", CLICKABLE, DEVICE_PARAMETERS)
+                    .build();
+    private static final androidx.wear.tiles.material.Text PRIMARY_LABEL =
+            new androidx.wear.tiles.material.Text.Builder(CONTEXT, "Primary label").build();
+    private static final androidx.wear.tiles.material.Text SECONDARY_LABEL =
+            new androidx.wear.tiles.material.Text.Builder(CONTEXT, "Secondary label").build();
 
     @Test
     public void testOnlyContent() {
         PrimaryLayout layout =
                 new PrimaryLayout.Builder(DEVICE_PARAMETERS).setContent(CONTENT).build();
 
-        assertLayout(DEFAULT_VERTICAL_SPACER_HEIGHT.getValue(), layout, CONTENT, null, null, null);
+        assertLayout(
+                LayoutDefaults.DEFAULT_VERTICAL_SPACER_HEIGHT.getValue(),
+                layout,
+                CONTENT,
+                null,
+                null,
+                null);
     }
 
     @Test
@@ -77,7 +82,7 @@ public class PrimaryLayoutTest {
                         .build();
 
         assertLayout(
-                DEFAULT_VERTICAL_SPACER_HEIGHT.getValue(),
+                LayoutDefaults.DEFAULT_VERTICAL_SPACER_HEIGHT.getValue(),
                 layout,
                 CONTENT,
                 PRIMARY_CHIP,
@@ -94,7 +99,7 @@ public class PrimaryLayoutTest {
                         .build();
 
         assertLayout(
-                DEFAULT_VERTICAL_SPACER_HEIGHT.getValue(),
+                LayoutDefaults.DEFAULT_VERTICAL_SPACER_HEIGHT.getValue(),
                 layout,
                 CONTENT,
                 null,
@@ -111,7 +116,7 @@ public class PrimaryLayoutTest {
                         .build();
 
         assertLayout(
-                DEFAULT_VERTICAL_SPACER_HEIGHT.getValue(),
+                LayoutDefaults.DEFAULT_VERTICAL_SPACER_HEIGHT.getValue(),
                 layout,
                 CONTENT,
                 null,
@@ -189,11 +194,10 @@ public class PrimaryLayoutTest {
     private void assertLayout(
             float height,
             @NonNull PrimaryLayout actualLayout,
-            @Nullable androidx.wear.tiles.LayoutElementBuilders.LayoutElement expectedContent,
-            @Nullable androidx.wear.tiles.LayoutElementBuilders.LayoutElement expectedPrimaryChip,
-            @Nullable androidx.wear.tiles.LayoutElementBuilders.LayoutElement expectedPrimaryLabel,
-            @Nullable
-                    androidx.wear.tiles.LayoutElementBuilders.LayoutElement
+            androidx.wear.tiles.LayoutElementBuilders.@Nullable LayoutElement expectedContent,
+            androidx.wear.tiles.LayoutElementBuilders.@Nullable LayoutElement expectedPrimaryChip,
+            androidx.wear.tiles.LayoutElementBuilders.@Nullable LayoutElement expectedPrimaryLabel,
+                                androidx.wear.tiles.LayoutElementBuilders.@Nullable LayoutElement
                             expectedSecondaryLabel) {
         assertLayoutIsEqual(
                 height,
@@ -225,11 +229,10 @@ public class PrimaryLayoutTest {
     private void assertLayoutIsEqual(
             float height,
             @NonNull PrimaryLayout actualLayout,
-            @Nullable androidx.wear.tiles.LayoutElementBuilders.LayoutElement expectedContent,
-            @Nullable androidx.wear.tiles.LayoutElementBuilders.LayoutElement expectedPrimaryChip,
-            @Nullable androidx.wear.tiles.LayoutElementBuilders.LayoutElement expectedPrimaryLabel,
-            @Nullable
-                    androidx.wear.tiles.LayoutElementBuilders.LayoutElement
+            androidx.wear.tiles.LayoutElementBuilders.@Nullable LayoutElement expectedContent,
+            androidx.wear.tiles.LayoutElementBuilders.@Nullable LayoutElement expectedPrimaryChip,
+            androidx.wear.tiles.LayoutElementBuilders.@Nullable LayoutElement expectedPrimaryLabel,
+                                androidx.wear.tiles.LayoutElementBuilders.@Nullable LayoutElement
                             expectedSecondaryLabel) {
         byte[] expectedMetadata = PrimaryLayout.METADATA_TAG_BASE.clone();
 

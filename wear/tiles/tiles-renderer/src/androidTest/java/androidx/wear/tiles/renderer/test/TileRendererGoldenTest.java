@@ -120,7 +120,7 @@ public class TileRendererGoldenTest {
 
     @Rule
     public AndroidXScreenshotTestRule screenshotRule =
-            new AndroidXScreenshotTestRule("wear/wear-tiles-renderer");
+            new AndroidXScreenshotTestRule("wear/tiles/tiles-renderer");
 
     // This isn't totally ideal right now. The screenshot tests run on a phone, so emulate some
     // watch dimensions here.
@@ -235,15 +235,19 @@ public class TileRendererGoldenTest {
         LayoutElement rootElement = LayoutElement.parseFrom(contents);
 
         TileRenderer renderer =
-                new TileRenderer(
-                        appContext,
-                        ContextCompat.getMainExecutor(getApplicationContext()),
-                        i -> {});
+                new TileRenderer.Builder(
+                                appContext,
+                                ContextCompat.getMainExecutor(getApplicationContext()),
+                                i -> {})
+                        .build();
 
-        View firstChild = renderer.inflateAsync(LayoutElementBuilders.Layout.fromProto(
-                Layout.newBuilder().setRoot(rootElement).build()),
-                ResourceBuilders.Resources.fromProto(generateResources()), mainFrame)
-                .get(30, TimeUnit.MILLISECONDS);
+        View firstChild =
+                renderer.inflateAsync(
+                                LayoutElementBuilders.Layout.fromProto(
+                                        Layout.newBuilder().setRoot(rootElement).build()),
+                                ResourceBuilders.Resources.fromProto(generateResources()),
+                                mainFrame)
+                        .get(30, TimeUnit.MILLISECONDS);
 
         if (firstChild == null) {
             throw new RuntimeException("Failed to inflate " + expectedKey);

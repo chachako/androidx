@@ -17,12 +17,14 @@
 package androidx.appsearch.localstorage.stats;
 
 import androidx.annotation.IntDef;
-import androidx.annotation.NonNull;
 import androidx.annotation.RestrictTo;
+import androidx.appsearch.annotation.CanIgnoreReturnValue;
 import androidx.appsearch.app.AppSearchResult;
 import androidx.appsearch.app.RemoveByDocumentIdRequest;
 import androidx.appsearch.app.SearchSpec;
 import androidx.core.util.Preconditions;
+
+import org.jspecify.annotations.NonNull;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -32,10 +34,11 @@ import java.lang.annotation.RetentionPolicy;
  * {@link androidx.appsearch.app.AppSearchSession#removeAsync(RemoveByDocumentIdRequest)} and
  * {@link androidx.appsearch.app.AppSearchSession#removeAsync(String, SearchSpec)}
  *
- * @hide
+ * @exportToFramework:hide
  */
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
 public final class RemoveStats {
+    /** Types of stats available for remove API. */
     @IntDef(value = {
             // It needs to be sync with DeleteType.Code in
             // external/icing/proto/icing/proto/logging.proto#DeleteStatsProto
@@ -61,10 +64,8 @@ public final class RemoveStats {
     /** Delete by schema type. */
     public static final int SCHEMA_TYPE = 4;
 
-    @NonNull
-    private final String mPackageName;
-    @NonNull
-    private final String mDatabase;
+    private final @NonNull String mPackageName;
+    private final @NonNull String mDatabase;
     /**
      * The status code returned by {@link AppSearchResult#getResultCode()} for the call or
      * internal state.
@@ -89,14 +90,12 @@ public final class RemoveStats {
     }
 
     /** Returns calling package name. */
-    @NonNull
-    public String getPackageName() {
+    public @NonNull String getPackageName() {
         return mPackageName;
     }
 
     /** Returns calling database name. */
-    @NonNull
-    public String getDatabase() {
+    public @NonNull String getDatabase() {
         return mDatabase;
     }
 
@@ -129,10 +128,8 @@ public final class RemoveStats {
 
     /** Builder for {@link RemoveStats}. */
     public static class Builder {
-        @NonNull
-        final String mPackageName;
-        @NonNull
-        final String mDatabase;
+        final @NonNull String mPackageName;
+        final @NonNull String mDatabase;
         @AppSearchResult.ResultCode
         int mStatusCode;
         int mTotalLatencyMillis;
@@ -148,43 +145,42 @@ public final class RemoveStats {
         }
 
         /** Sets the status code. */
-        @NonNull
-        public Builder setStatusCode(@AppSearchResult.ResultCode int statusCode) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setStatusCode(@AppSearchResult.ResultCode int statusCode) {
             mStatusCode = statusCode;
             return this;
         }
 
         /** Sets total latency in millis. */
-        @NonNull
-        public Builder setTotalLatencyMillis(int totalLatencyMillis) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setTotalLatencyMillis(int totalLatencyMillis) {
             mTotalLatencyMillis = totalLatencyMillis;
             return this;
         }
 
         /** Sets native latency in millis. */
-        @NonNull
-        public Builder setNativeLatencyMillis(int nativeLatencyMillis) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setNativeLatencyMillis(int nativeLatencyMillis) {
             mNativeLatencyMillis = nativeLatencyMillis;
             return this;
         }
 
         /** Sets delete type for this call. */
-        @NonNull
-        public Builder setDeleteType(@DeleteType int nativeDeleteType) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setDeleteType(@DeleteType int nativeDeleteType) {
             mNativeDeleteType = nativeDeleteType;
             return this;
         }
 
         /** Sets how many documents get deleted for this call. */
-        @NonNull
-        public Builder setDeletedDocumentCount(int nativeNumDocumentsDeleted) {
+        @CanIgnoreReturnValue
+        public @NonNull Builder setDeletedDocumentCount(int nativeNumDocumentsDeleted) {
             mNativeNumDocumentsDeleted = nativeNumDocumentsDeleted;
             return this;
         }
 
         /** Creates a {@link RemoveStats}. */
-        @NonNull
-        public RemoveStats build() {
+        public @NonNull RemoveStats build() {
             return new RemoveStats(/* builder= */ this);
         }
     }

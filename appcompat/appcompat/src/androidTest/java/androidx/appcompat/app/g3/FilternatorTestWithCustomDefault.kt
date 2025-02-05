@@ -23,10 +23,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
-import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
-import androidx.testutils.LifecycleOwnerUtils.waitUntilState
+import androidx.testutils.lifecycle.LifecycleOwnerUtils.waitUntilState
 import androidx.testutils.withActivity
 import com.google.common.truth.Truth.assertThat
 import java.util.concurrent.TimeUnit
@@ -46,7 +45,6 @@ import org.junit.runner.RunWith
  */
 @Suppress("SameParameterValue")
 @LargeTest
-@SdkSuppress(minSdkVersion = 18) // UiDevice
 @RunWith(AndroidJUnit4::class)
 class FilternatorTestWithCustomDefault {
     @get:Rule

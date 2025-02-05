@@ -16,6 +16,8 @@
 
 package androidx.constraintlayout.compose.demos
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,7 +35,7 @@ import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -47,6 +49,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.system.exitProcess
 
 data class ComposeDemo(val title: String, val content: @Composable () -> Unit)
 
@@ -56,6 +59,9 @@ val AllComposeConstraintLayoutDemos: List<ComposeDemo> =
         ComposeDemo("Simple OnSwipe") { SimpleOnSwipe() },
         ComposeDemo("Multiple OnSwipe") { MultiSwipeDsl() },
         ComposeDemo("AnimatedChainOrientation") { ChainsAnimatedOrientationDemo() },
+        ComposeDemo("AnimatedChainOrientation w/ Modifier DSL") {
+            ChainsAnimatedOrientationDemo1()
+        },
         ComposeDemo("CollapsibleToolbar w/ Column") { ToolBarDslDemo() },
         ComposeDemo("CollapsibleToolbar w/ LazyColumn") { ToolBarLazyDslDemo() },
         ComposeDemo("MotionLayout in LazyList") { MotionInLazyColumnDslDemo() },
@@ -65,9 +71,7 @@ val AllComposeConstraintLayoutDemos: List<ComposeDemo> =
         ComposeDemo("Simple Staggered") { SimpleStaggeredDemo() }
     )
 
-/**
- * Main screen to explore and interact with all demos from [AllComposeConstraintLayoutDemos].
- */
+/** Main screen to explore and interact with all demos from [AllComposeConstraintLayoutDemos]. */
 @Preview
 @Composable
 fun ComposeConstraintLayoutDemos() {
@@ -81,46 +85,54 @@ fun ComposeConstraintLayoutDemos() {
                     Text(text = "ComposeConstraintLayoutDemos", style = MaterialTheme.typography.h6)
                     Spacer(modifier = Modifier.height(8.dp))
                 }
-
                 else -> {
                     // Header with back button
                     val composeDemo = AllComposeConstraintLayoutDemos[displayedDemoIndex]
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .background(Color.White)
-                            .graphicsLayer(shadowElevation = 2f),
+                        modifier =
+                            Modifier.fillMaxWidth()
+                                .height(50.dp)
+                                .background(Color.White)
+                                .graphicsLayer(shadowElevation = 2f),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .weight(1f, true)
-                                .clickable { displayedDemoIndex = -1 },
+                            modifier =
+                                Modifier.fillMaxHeight().weight(1f, true).clickable {
+                                    displayedDemoIndex = -1
+                                },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Default.ArrowBack,
+                                contentDescription = "Back"
+                            )
                             Text(text = composeDemo.title)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Button(onClick = {
-                                displayedDemoIndex = if (displayedDemoIndex == 0) {
-                                    maxIndex
-                                } else {
-                                    displayedDemoIndex - 1
+                            Button(
+                                onClick = {
+                                    displayedDemoIndex =
+                                        if (displayedDemoIndex == 0) {
+                                            maxIndex
+                                        } else {
+                                            displayedDemoIndex - 1
+                                        }
                                 }
-                            }) {
+                            ) {
                                 Text("Prev")
                             }
-                            Button(onClick = {
-                                displayedDemoIndex = if (displayedDemoIndex == maxIndex) {
-                                    0
-                                } else {
-                                    displayedDemoIndex + 1
+                            Button(
+                                onClick = {
+                                    displayedDemoIndex =
+                                        if (displayedDemoIndex == maxIndex) {
+                                            0
+                                        } else {
+                                            displayedDemoIndex + 1
+                                        }
                                 }
-                            }) {
+                            ) {
                                 Text("Next")
                             }
                         }
@@ -136,18 +148,23 @@ fun ComposeConstraintLayoutDemos() {
                         ComposeDemoItem(composeDemo.title) { displayedDemoIndex = index }
                     }
                 }
-
                 else -> {
                     // Display selected demo
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .weight(1.0f, true)
-                    ) {
+                    Box(Modifier.fillMaxWidth().weight(1.0f, true)) {
                         AllComposeConstraintLayoutDemos[displayedDemoIndex].content()
                     }
                 }
             }
+        }
+    }
+
+    val activity = LocalActivity.current
+    // If there's a demo being displayed, return to demo list, otherwise, exit app
+    BackHandler {
+        if (displayedDemoIndex >= 0) {
+            displayedDemoIndex = -1
+        } else {
+            activity?.finishAffinity() ?: exitProcess(0)
         }
     }
 }
@@ -155,20 +172,17 @@ fun ComposeConstraintLayoutDemos() {
 @Composable
 private fun ComposeDemoItem(title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
-        modifier = modifier
-            .padding(horizontal = 8.dp)
-            .fillMaxWidth()
-            .height(44.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(Color.White)
-            .clickable(onClick = onClick)
-            .padding(start = 8.dp),
+        modifier =
+            modifier
+                .padding(horizontal = 8.dp)
+                .fillMaxWidth()
+                .height(44.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color.White)
+                .clickable(onClick = onClick)
+                .padding(start = 8.dp),
         contentAlignment = Alignment.CenterStart
     ) {
-        Text(
-            text = title,
-            modifier = Modifier,
-            fontSize = 16.sp
-        )
+        Text(text = title, modifier = Modifier, fontSize = 16.sp)
     }
 }

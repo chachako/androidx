@@ -20,9 +20,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.internal.checkPrecondition
+import androidx.compose.ui.internal.requirePrecondition
 import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.Nodes
 import androidx.compose.ui.node.visitAncestors
+import androidx.compose.ui.util.fastMap
 
 /**
  * An opaque key-value holder of [ModifierLocal]s to be used with [ModifierLocalModifierNode].
@@ -31,42 +34,41 @@ import androidx.compose.ui.node.visitAncestors
  */
 sealed class ModifierLocalMap {
     internal abstract operator fun <T> set(key: ModifierLocal<T>, value: T)
+
     internal abstract operator fun <T> get(key: ModifierLocal<T>): T?
+
     internal abstract operator fun contains(key: ModifierLocal<*>): Boolean
 }
 
-internal class SingleLocalMap(
-    private val key: ModifierLocal<*>
-) : ModifierLocalMap() {
+internal class SingleLocalMap(private val key: ModifierLocal<*>) : ModifierLocalMap() {
     private var value: Any? by mutableStateOf(null)
+
     internal fun forceValue(value: Any?) {
         this.value = value
     }
 
     override operator fun <T> set(key: ModifierLocal<T>, value: T) {
-        check(key === this.key)
+        @Suppress("ExceptionMessage") checkPrecondition(key === this.key)
         this.value = value
     }
 
+    @Suppress("UNCHECKED_CAST", "ExceptionMessage")
     override operator fun <T> get(key: ModifierLocal<T>): T? {
-        check(key === this.key)
-        @Suppress("UNCHECKED_CAST")
+        checkPrecondition(key === this.key)
         return value as? T?
     }
 
     override operator fun contains(key: ModifierLocal<*>): Boolean = key === this.key
 }
 
-internal class BackwardsCompatLocalMap(
-    var element: ModifierLocalProvider<*>
-) : ModifierLocalMap() {
+internal class BackwardsCompatLocalMap(var element: ModifierLocalProvider<*>) : ModifierLocalMap() {
     override operator fun <T> set(key: ModifierLocal<T>, value: T) {
         error("Set is not allowed on a backwards compat provider")
     }
 
+    @Suppress("UNCHECKED_CAST", "ExceptionMessage")
     override operator fun <T> get(key: ModifierLocal<T>): T? {
-        check(key === element.key)
-        @Suppress("UNCHECKED_CAST")
+        checkPrecondition(key === element.key)
         return element.value as T
     }
 
@@ -74,11 +76,13 @@ internal class BackwardsCompatLocalMap(
 }
 
 internal class MultiLocalMap(
+    entry1: Pair<ModifierLocal<*>, Any?>,
     vararg entries: Pair<ModifierLocal<*>, Any?>
 ) : ModifierLocalMap() {
     private val map = mutableStateMapOf<ModifierLocal<*>, Any?>()
 
     init {
+        map += entry1
         map.putAll(entries.toMap())
     }
 
@@ -87,8 +91,7 @@ internal class MultiLocalMap(
     }
 
     override operator fun <T> get(key: ModifierLocal<T>): T? {
-        @Suppress("UNCHECKED_CAST")
-        return map[key] as? T?
+        @Suppress("UNCHECKED_CAST") return map[key] as? T?
     }
 
     override operator fun contains(key: ModifierLocal<*>): Boolean = map.containsKey(key)
@@ -96,7 +99,9 @@ internal class MultiLocalMap(
 
 internal object EmptyMap : ModifierLocalMap() {
     override fun <T> set(key: ModifierLocal<T>, value: T) = error("")
-    override fun <T> get(key: ModifierLocal<T>): T? = error("")
+
+    override fun <T> get(key: ModifierLocal<T>): T = error("")
+
     override fun contains(key: ModifierLocal<*>): Boolean = false
 }
 
@@ -104,11 +109,10 @@ internal object EmptyMap : ModifierLocalMap() {
  * A [androidx.compose.ui.Modifier.Node] that is capable of consuming and providing [ModifierLocal]
  * values.
  *
- * This is the [androidx.compose.ui.Modifier.Node] equivalent of the [ModifierLocalConsumer]
- * and [ModifierLocalProvider] interfaces.
+ * This is the [androidx.compose.ui.Modifier.Node] equivalent of the [ModifierLocalConsumer] and
+ * [ModifierLocalProvider] interfaces.
  *
  * @sample androidx.compose.ui.samples.JustReadingOrProvidingModifierLocalNodeSample
- *
  * @see modifierLocalOf
  * @see ModifierLocal
  * @see androidx.compose.runtime.CompositionLocal
@@ -129,12 +133,13 @@ interface ModifierLocalModifierNode : ModifierLocalReadScope, DelegatableNode {
      * @see modifierLocalMapOf
      * @see provide
      */
-    val providedValues: ModifierLocalMap get() = EmptyMap
+    val providedValues: ModifierLocalMap
+        get() = EmptyMap
 
     /**
      * This method will cause this node to provide a new [value] for [key]. This can be called at
-     * any time on the UI thread, but in order to use this API, [providedValues] must be
-     * implemented and [key] must be a key that was included in it.
+     * any time on the UI thread, but in order to use this API, [providedValues] must be implemented
+     * and [key] must be a key that was included in it.
      *
      * By providing this new value, any [ModifierLocalModifierNode] below it in the tree will read
      * this [value] when reading [current], until another [ModifierLocalModifierNode] provides a
@@ -142,10 +147,10 @@ interface ModifierLocalModifierNode : ModifierLocalReadScope, DelegatableNode {
      * notified that a new value was provided.
      */
     fun <T> provide(key: ModifierLocal<T>, value: T) {
-        require(providedValues !== EmptyMap) {
+        requirePrecondition(providedValues !== EmptyMap) {
             "In order to provide locals you must override providedValues: ModifierLocalMap"
         }
-        require(providedValues.contains(key)) {
+        requirePrecondition(providedValues.contains(key)) {
             "Any provided key must be initially provided in the overridden providedValues: " +
                 "ModifierLocalMap property. Key $key was not found."
         }
@@ -153,55 +158,77 @@ interface ModifierLocalModifierNode : ModifierLocalReadScope, DelegatableNode {
     }
 
     /**
-     * Read a [ModifierLocal] that was provided by other modifiers to the left of this modifier,
-     * or above this modifier in the layout tree.
+     * Read a [ModifierLocal] that was provided by other modifiers to the left of this modifier, or
+     * above this modifier in the layout tree.
      */
     override val <T> ModifierLocal<T>.current: T
         get() {
-            require(node.isAttached)
+            requirePrecondition(node.isAttached) {
+                "ModifierLocal accessed from an unattached node"
+            }
             val key = this
             visitAncestors(Nodes.Locals) {
                 if (it.providedValues.contains(key)) {
-                    @Suppress("UNCHECKED_CAST")
-                    return it.providedValues[key] as T
+                    @Suppress("UNCHECKED_CAST") return it.providedValues[key] as T
                 }
             }
             return key.defaultFactory()
         }
 }
 
-/**
- * Creates an empty [ModifierLocalMap]
- */
+/** Creates an empty [ModifierLocalMap] */
 fun modifierLocalMapOf(): ModifierLocalMap = EmptyMap
 
-/**
- * Creates a [ModifierLocalMap] with a single key and value initialized to null.
- */
-fun <T> modifierLocalMapOf(
-    key: ModifierLocal<T>
-): ModifierLocalMap = SingleLocalMap(key)
+/** Creates a [ModifierLocalMap] with a single key and value initialized to null. */
+fun <T> modifierLocalMapOf(key: ModifierLocal<T>): ModifierLocalMap = SingleLocalMap(key)
 
 /**
  * Creates a [ModifierLocalMap] with a single key and value. The provided [entry] should have
  * [Pair::first] be the [ModifierLocal] key, and the [Pair::second] be the corresponding value.
  */
-fun <T> modifierLocalMapOf(
-    entry: Pair<ModifierLocal<T>, T>
-): ModifierLocalMap = SingleLocalMap(entry.first).also { it[entry.first] = entry.second }
+fun <T> modifierLocalMapOf(entry: Pair<ModifierLocal<T>, T>): ModifierLocalMap =
+    SingleLocalMap(entry.first).also { it[entry.first] = entry.second }
 
-/**
- * Creates a [ModifierLocalMap] with several keys, all initialized with values of null
- */
+/** Creates a [ModifierLocalMap] with several keys, all initialized with values of null */
 fun modifierLocalMapOf(
+    key1: ModifierLocal<*>,
+    key2: ModifierLocal<*>,
     vararg keys: ModifierLocal<*>
-): ModifierLocalMap = MultiLocalMap(*keys.map { it to null }.toTypedArray())
+): ModifierLocalMap =
+    MultiLocalMap(key1 to null, key2 to null, *keys.map { it to null }.toTypedArray())
 
 /**
  * Creates a [ModifierLocalMap] with multiple keys and values. The provided [entries] should have
- * each item's [Pair::first] be the [ModifierLocal] key, and the [Pair::second] be the
- * corresponding value.
+ * each item's [Pair::first] be the [ModifierLocal] key, and the [Pair::second] be the corresponding
+ * value.
  */
 fun modifierLocalMapOf(
+    entry1: Pair<ModifierLocal<*>, Any>,
+    entry2: Pair<ModifierLocal<*>, Any>,
     vararg entries: Pair<ModifierLocal<*>, Any>
-): ModifierLocalMap = MultiLocalMap(*entries)
+): ModifierLocalMap = MultiLocalMap(entry1, entry2, *entries)
+
+// b/280116113.
+@Deprecated(
+    message = "Use a different overloaded version of this function",
+    level = DeprecationLevel.HIDDEN
+)
+fun modifierLocalMapOf(vararg keys: ModifierLocal<*>): ModifierLocalMap =
+    when (keys.size) {
+        0 -> EmptyMap
+        1 -> SingleLocalMap(keys.first())
+        else ->
+            MultiLocalMap(keys.first() to null, *keys.drop(1).fastMap { it to null }.toTypedArray())
+    }
+
+// b/280116113.
+@Deprecated(
+    message = "Use a different overloaded version of this function",
+    level = DeprecationLevel.HIDDEN
+)
+fun modifierLocalMapOf(vararg entries: Pair<ModifierLocal<*>, Any>): ModifierLocalMap =
+    when (entries.size) {
+        0 -> EmptyMap
+        1 -> MultiLocalMap(entries.first())
+        else -> MultiLocalMap(entries.first(), *entries.drop(1).toTypedArray())
+    }

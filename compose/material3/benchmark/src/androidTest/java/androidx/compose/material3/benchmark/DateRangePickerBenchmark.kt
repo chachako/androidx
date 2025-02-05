@@ -28,8 +28,10 @@ import androidx.compose.testutils.benchmark.benchmarkFirstCompose
 import androidx.compose.testutils.benchmark.benchmarkFirstDraw
 import androidx.compose.testutils.benchmark.benchmarkFirstLayout
 import androidx.compose.testutils.benchmark.benchmarkFirstMeasure
+import androidx.compose.testutils.benchmark.benchmarkToFirstPixel
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
+import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,65 +40,71 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class DateRangePickerBenchmark {
 
-    @get:Rule
-    val benchmarkRule = ComposeBenchmarkRule()
+    @get:Rule val benchmarkRule = ComposeBenchmarkRule()
 
     private val dateRangePickerTestCaseFactory = { DateRangePickerTestCase() }
     private val dateRangeInputTestCaseFactory = { DateRangeInputTestCase() }
 
     @Test
+    fun dateRangePicker_firstPixel() {
+        benchmarkRule.benchmarkToFirstPixel(dateRangePickerTestCaseFactory)
+    }
+
+    @Test
+    fun dateRangeInput_firstPixel() {
+        benchmarkRule.benchmarkFirstRenderUntilStable(dateRangeInputTestCaseFactory)
+    }
+
+    @Ignore
+    @Test
     fun first_compose_pickerMode() {
         benchmarkRule.benchmarkFirstCompose(dateRangePickerTestCaseFactory)
     }
 
+    @Ignore
     @Test
     fun first_compose_inputMode() {
         benchmarkRule.benchmarkFirstCompose(dateRangeInputTestCaseFactory)
     }
 
+    @Ignore
     @Test
     fun dateRangePicker_measure() {
         benchmarkRule.benchmarkFirstMeasure(dateRangePickerTestCaseFactory)
     }
 
+    @Ignore
     @Test
     fun dateRangeInput_measure() {
-        benchmarkRule.benchmarkFirstMeasure(
-            caseFactory = dateRangeInputTestCaseFactory,
-            allowPendingChanges = true
-        )
+        benchmarkRule.benchmarkMeasureUntilStable(dateRangeInputTestCaseFactory)
     }
 
+    @Ignore
     @Test
     fun dateRangePicker_layout() {
         benchmarkRule.benchmarkFirstLayout(dateRangePickerTestCaseFactory)
     }
 
+    @Ignore
     @Test
     fun dateRangeInput_layout() {
-        benchmarkRule.benchmarkFirstLayout(
-            caseFactory = dateRangeInputTestCaseFactory,
-            allowPendingChanges = true
-        )
+        benchmarkRule.benchmarkLayoutUntilStable(dateRangeInputTestCaseFactory)
     }
 
+    @Ignore
     @Test
     fun dateRangePicker_draw() {
         benchmarkRule.benchmarkFirstDraw(dateRangePickerTestCaseFactory)
     }
 
+    @Ignore
     @Test
     fun dateRangeInput_draw() {
-        benchmarkRule.benchmarkFirstDraw(
-            caseFactory = dateRangeInputTestCaseFactory,
-            allowPendingChanges = true
-        )
+        benchmarkRule.benchmarkDrawUntilStable(dateRangeInputTestCaseFactory)
     }
 }
 
-/**
- * A [DateRangePicker] test case when initiated in its default picker mode.
- */
+/** A [DateRangePicker] test case when initiated in its default picker mode. */
 internal class DateRangePickerTestCase : LayeredComposeTestCase() {
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -107,15 +115,11 @@ internal class DateRangePickerTestCase : LayeredComposeTestCase() {
 
     @Composable
     override fun ContentWrappers(content: @Composable () -> Unit) {
-        MaterialTheme {
-            content()
-        }
+        MaterialTheme { content() }
     }
 }
 
-/**
- * A [DateRangePicker] test case when initiated in an input mode.
- */
+/** A [DateRangePicker] test case when initiated in an input mode. */
 internal class DateRangeInputTestCase : LayeredComposeTestCase() {
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -128,8 +132,6 @@ internal class DateRangeInputTestCase : LayeredComposeTestCase() {
 
     @Composable
     override fun ContentWrappers(content: @Composable () -> Unit) {
-        MaterialTheme {
-            content()
-        }
+        MaterialTheme { content() }
     }
 }

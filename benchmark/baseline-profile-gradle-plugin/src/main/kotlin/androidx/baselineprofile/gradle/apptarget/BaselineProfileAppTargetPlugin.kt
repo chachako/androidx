@@ -22,12 +22,18 @@ import androidx.baselineprofile.gradle.utils.AgpPlugin
 import androidx.baselineprofile.gradle.utils.AgpPluginId
 import androidx.baselineprofile.gradle.utils.BUILD_TYPE_BASELINE_PROFILE_PREFIX
 import androidx.baselineprofile.gradle.utils.BUILD_TYPE_BENCHMARK_PREFIX
-import androidx.baselineprofile.gradle.utils.MAX_AGP_VERSION_REQUIRED
-import androidx.baselineprofile.gradle.utils.MIN_AGP_VERSION_REQUIRED
+import androidx.baselineprofile.gradle.utils.Dependencies
+import androidx.baselineprofile.gradle.utils.MAX_AGP_VERSION_RECOMMENDED_EXCLUSIVE
+import androidx.baselineprofile.gradle.utils.MIN_AGP_VERSION_REQUIRED_INCLUSIVE
+import androidx.baselineprofile.gradle.utils.camelCase
+import androidx.baselineprofile.gradle.utils.copyBuildTypeSources
+import androidx.baselineprofile.gradle.utils.copySigningConfigIfNotSpecified
 import androidx.baselineprofile.gradle.utils.createExtendedBuildTypes
 import com.android.build.api.AndroidPluginVersion
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.variant.ApplicationVariant
+import com.android.build.api.variant.ApplicationVariantBuilder
+import com.android.build.api.variant.HasUnitTestBuilder
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
@@ -42,17 +48,35 @@ class BaselineProfileAppTargetPlugin : Plugin<Project> {
     override fun apply(project: Project) = BaselineProfileAppTargetAgpPlugin(project).onApply()
 }
 
-private class BaselineProfileAppTargetAgpPlugin(private val project: Project) : AgpPlugin(
-    project = project,
-    supportedAgpPlugins = setOf(
-        AgpPluginId.ID_ANDROID_APPLICATION_PLUGIN,
-        AgpPluginId.ID_ANDROID_LIBRARY_PLUGIN
-    ),
-    minAgpVersion = MIN_AGP_VERSION_REQUIRED,
-    maxAgpVersion = MAX_AGP_VERSION_REQUIRED
-) {
+private class BaselineProfileAppTargetAgpPlugin(private val project: Project) :
+    AgpPlugin(
+        project = project,
+        supportedAgpPlugins =
+            setOf(AgpPluginId.ID_ANDROID_APPLICATION_PLUGIN, AgpPluginId.ID_ANDROID_LIBRARY_PLUGIN),
+        minAgpVersionInclusive = MIN_AGP_VERSION_REQUIRED_INCLUSIVE,
+        maxAgpVersionExclusive = MAX_AGP_VERSION_RECOMMENDED_EXCLUSIVE
+    ) {
 
-    private val extendedBuildTypesMapping = mutableMapOf<String, String>()
+    private val ApplicationExtension.debugSigningConfig
+        get() = buildTypes.getByName("debug").signingConfig
+
+    private val dependencies = Dependencies(project)
+
+    // Benchmark build type to the original ones. Ex: benchmarkRelease -> release
+    private val benchmarkExtendedToOriginalTypeMap = mutableMapOf<String, String>()
+
+    // This is the opposite. Ex: release -> benchmarkRelease
+    private val benchmarkOriginalToExtendedTypeMap by lazy {
+        benchmarkExtendedToOriginalTypeMap.toList().associate { Pair(it.second, it.first) }
+    }
+
+    // Baseline Profile build type to the original ones. Ex: nonMinifiedRelease -> release
+    private val baselineProfileExtendedToOriginalTypeMap = mutableMapOf<String, String>()
+
+    // This is the opposite. Ex: release -> nonMinifiedRelease
+    private val baselineProfileOriginalToExtendedTypeMap by lazy {
+        baselineProfileExtendedToOriginalTypeMap.toList().associate { Pair(it.second, it.first) }
+    }
 
     override fun onAgpPluginNotFound(pluginIds: Set<AgpPluginId>) {
 
@@ -63,7 +87,8 @@ private class BaselineProfileAppTargetAgpPlugin(private val project: Project) : 
             applied. The `androidx.baselineprofile.apptarget` plugin supports only
             android application modules. Please review your build.gradle to ensure this
             plugin is applied to the correct module.
-            """.trimIndent()
+            """
+                .trimIndent()
         )
     }
 
@@ -82,14 +107,15 @@ private class BaselineProfileAppTargetAgpPlugin(private val project: Project) : 
             running the code of the library for which you want to generate the profile.
             Please review your build.gradle to ensure this plugin is applied to the
             correct module.
-            """.trimIndent()
+            """
+                    .trimIndent()
             )
         }
 
         // Otherwise, just log the plugin was applied.
-        project
-            .logger
-            .debug("[BaselineProfileAppTargetPlugin] afterEvaluate check: app plugin was applied")
+        project.logger.debug(
+            "[BaselineProfileAppTargetPlugin] afterEvaluate check: app plugin was applied"
+        )
     }
 
     override fun onApplicationFinalizeDsl(extension: ApplicationExtension) {
@@ -102,100 +128,256 @@ private class BaselineProfileAppTargetAgpPlugin(private val project: Project) : 
         }
     }
 
-    private fun createBuildTypesWithAgp80(extension: ApplicationExtension) {
+    override fun onApplicationBeforeVariants(variantBuilder: ApplicationVariantBuilder) {
 
-        // Creates baseline profile build types extending the currently existing ones.
-        // They're named `<BUILD_TYPE_BASELINE_PROFILE_PREFIX><originalBuildTypeName>`.
-        createExtendedBuildTypes(
-            project = project,
-            extensionBuildTypes = extension.buildTypes,
-            extendedBuildTypeToOriginalBuildTypeMapping = extendedBuildTypesMapping,
-            newBuildTypePrefix = BUILD_TYPE_BASELINE_PROFILE_PREFIX,
-            filterBlock = {
-                // Create baseline profile build types only for non debuggable builds.
-                !it.isDebuggable
-            },
-            configureBlock = {
-                isJniDebuggable = false
-                isDebuggable = false
-                isMinifyEnabled = true
-                isShrinkResources = false
-                isProfileable = true
-                signingConfig = extension.debugSigningConfig
-                enableAndroidTestCoverage = false
-                enableUnitTestCoverage = false
+        // Process all the extended build types for both baseline profile and benchmark to
+        // disable unit tests.
+        if (
+            variantBuilder.buildType in baselineProfileExtendedToOriginalTypeMap.keys ||
+                variantBuilder.buildType in benchmarkExtendedToOriginalTypeMap.keys
+        ) {
+
+            if (supportsFeature(AgpFeature.APPLICATION_VARIANT_HAS_UNIT_TEST_BUILDER)) {
+                (variantBuilder as? HasUnitTestBuilder)?.enableUnitTest = false
+            } else {
+                @Suppress("deprecation")
+                variantBuilder.enableUnitTest = false
+                @Suppress("deprecation")
+                variantBuilder.unitTestEnabled = false
             }
-        )
+        }
     }
 
     override fun onApplicationVariants(variant: ApplicationVariant) {
 
-        // This behavior is only for AGP 8.0.
-        if (agpVersion() >= AndroidPluginVersion(8, 1, 0)) {
-            return
-        }
+        // Extending the build type won't also copy the build type specific dependencies, that
+        // need to be copied separately for both baseline profile and benchmark variants.
+        // Note that the maps used here are organized like: `release` -> `nonMinifiedRelease` and
+        // `release` -> `benchmark`.
+        data class MappingAndPrefix(val mapping: Map<String, String>, val prefix: String)
+        listOf(
+                MappingAndPrefix(
+                    baselineProfileOriginalToExtendedTypeMap,
+                    BUILD_TYPE_BASELINE_PROFILE_PREFIX
+                ),
+                MappingAndPrefix(benchmarkOriginalToExtendedTypeMap, BUILD_TYPE_BENCHMARK_PREFIX),
+            )
+            .forEach {
+                if (variant.buildType !in it.mapping.keys) {
+                    return@forEach
+                }
 
-        // We can skip the build types that were NOT created by this plugin.
-        if (variant.buildType !in extendedBuildTypesMapping.keys) {
-            return
-        }
+                // This would be, for example, `release`.
+                val originalBuildTypeName =
+                    variant.buildType
+                        ?: throw IllegalStateException(
+                            // Note that this exception cannot happen due to user configuration.
+                            "Variant `${variant.name}` does not have a build type."
+                        )
 
-        // Add a keep rule file to make sure the build is non obfuscated
-        val keepRuleFileProvider = GenerateKeepRulesForBaselineProfilesTask
-            .maybeRegister(project)
-            .flatMap { it.keepRuleFile }
-        variant.proguardFiles.add(keepRuleFileProvider)
+                // This would be, for example, `nonMinifiedRelease`.
+                val extendedBuildTypeName =
+                    it.mapping[originalBuildTypeName]
+                        ?: throw IllegalStateException(
+                            // Note that this exception cannot happen due to user configuration.
+                            "Build type `${variant.buildType}` was not extended."
+                        )
+
+                // Copy build type specific dependencies
+                dependencies.copy(
+                    fromPrefix = originalBuildTypeName,
+                    toPrefix = extendedBuildTypeName
+                )
+
+                // Copy variant specific dependencies
+                dependencies.copy(
+                    fromPrefix = variant.name,
+                    toPrefix = camelCase(variant.flavorName ?: "", extendedBuildTypeName)
+                )
+
+                // Note that we don't need to copy flavor specific dependencies because they're
+                // applied
+                // to all the build types, including the extended ones.
+            }
+
+        // This behavior is only for AGP 8.0: since we cannot support multiple build types in the
+        // same gradle invocation (including `assemble` or `build` due to b/265438201), we use a
+        // single build type for both benchmark and baseline profile in the producer module.
+        // This build type is minified but not obfuscated. Here we add a fixed proguard file that
+        // disables the obfuscation. Also we want to skip the build types that were NOT created by
+        // this plugin.
+        if (
+            agpVersion() < AndroidPluginVersion(8, 1, 0) &&
+                variant.buildType in baselineProfileExtendedToOriginalTypeMap.keys
+        ) {
+            variant.proguardFiles.add(
+                GenerateKeepRulesForBaselineProfilesTask.maybeRegister(project).flatMap {
+                    it.keepRuleFile
+                }
+            )
+        }
+    }
+
+    private fun createBuildTypesWithAgp80(extension: ApplicationExtension) {
+
+        // Creates baseline profile build types extending the currently existing ones.
+        // They're named `<BUILD_TYPE_BASELINE_PROFILE_PREFIX><originalBuildTypeName>`.
+        // Note that if the build type already does not exist, the `newConfigureBlock` is applied,
+        // while if it exist the `overrideConfigureBlock` is applied.
+        createExtendedBuildTypes(
+            project = project,
+            extensionBuildTypes = extension.buildTypes,
+            extendedBuildTypeToOriginalBuildTypeMapping = baselineProfileExtendedToOriginalTypeMap,
+            newBuildTypePrefix = BUILD_TYPE_BASELINE_PROFILE_PREFIX,
+            filterBlock = {
+                // Create baseline profile build types only for non debuggable builds.
+                // Note that it's possible to override benchmarkRelease and nonMinifiedRelease,
+                // so we also want to make sure we don't extended these again.
+                !it.isDebuggable &&
+                    !it.name.startsWith(BUILD_TYPE_BASELINE_PROFILE_PREFIX) &&
+                    !it.name.startsWith(BUILD_TYPE_BENCHMARK_PREFIX)
+            },
+            newConfigureBlock = { base, ext ->
+
+                // Properties applied when the build type does not exist.
+                ext.isJniDebuggable = false
+                ext.isDebuggable = false
+                ext.isProfileable = true
+                ext.enableAndroidTestCoverage = false
+                ext.enableUnitTestCoverage = false
+
+                ext.isMinifyEnabled = base.isMinifyEnabled
+                ext.isShrinkResources = base.isShrinkResources
+
+                copySigningConfigIfNotSpecified(base, ext, extension.debugSigningConfig)
+            },
+            overrideConfigureBlock = { base, ext ->
+
+                // Properties applied when the build type exists.
+                ext.isDebuggable = false
+                ext.isJniDebuggable = false
+                ext.isProfileable = true
+                ext.enableAndroidTestCoverage = false
+                ext.enableUnitTestCoverage = false
+
+                copySigningConfigIfNotSpecified(base, ext, extension.debugSigningConfig)
+            }
+        )
+
+        // Copies the source sets for the newly created build types
+        copyBuildTypeSources(
+            extensionSourceSets = extension.sourceSets,
+            fromToMapping = baselineProfileExtendedToOriginalTypeMap
+        )
     }
 
     private fun createBuildTypesWithAgp81AndAbove(extension: ApplicationExtension) {
 
         // Creates baseline profile build types extending the currently existing ones.
         // They're named `<BUILD_TYPE_BASELINE_PROFILE_PREFIX><originalBuildTypeName>`.
+        // Note that if the build type already does not exist, the `newConfigureBlock` is applied,
+        // while if it exist the `overrideConfigureBlock` is applied.
         createExtendedBuildTypes(
             project = project,
-            extendedBuildTypeToOriginalBuildTypeMapping = extendedBuildTypesMapping,
+            extendedBuildTypeToOriginalBuildTypeMapping = baselineProfileExtendedToOriginalTypeMap,
             extensionBuildTypes = extension.buildTypes,
             newBuildTypePrefix = BUILD_TYPE_BASELINE_PROFILE_PREFIX,
             filterBlock = {
                 // Create baseline profile build types only for non debuggable builds.
-                !it.isDebuggable
+                // Note that it's possible to override benchmarkRelease and nonMinifiedRelease,
+                // so we also want to make sure we don't extended these again.
+                !it.isDebuggable &&
+                    !it.name.startsWith(BUILD_TYPE_BASELINE_PROFILE_PREFIX) &&
+                    !it.name.startsWith(BUILD_TYPE_BENCHMARK_PREFIX)
             },
-            configureBlock = {
-                isJniDebuggable = false
-                isDebuggable = false
-                isMinifyEnabled = false
-                isShrinkResources = false
-                isProfileable = true
-                signingConfig = extension.debugSigningConfig
-                enableAndroidTestCoverage = false
-                enableUnitTestCoverage = false
-            }
+            newConfigureBlock = { base, ext ->
+
+                // Properties applied when the build type does not exist.
+                ext.isJniDebuggable = false
+                ext.isDebuggable = false
+                ext.isMinifyEnabled = false
+                ext.isShrinkResources = false
+                ext.isProfileable = true
+                ext.enableAndroidTestCoverage = false
+                ext.enableUnitTestCoverage = false
+
+                // Since minifyEnabled is `false`, no need to copy proguard files.
+
+                copySigningConfigIfNotSpecified(base, ext, extension.debugSigningConfig)
+            },
+            overrideConfigureBlock = { base, ext ->
+
+                // Properties applied when the build type exists.
+                // For baseline profile build type it's the same of `newConfigureBlock`.
+                ext.isJniDebuggable = false
+                ext.isDebuggable = false
+                ext.isMinifyEnabled = false
+                ext.isShrinkResources = false
+                ext.isProfileable = true
+                ext.enableAndroidTestCoverage = false
+                ext.enableUnitTestCoverage = false
+
+                // Since minifyEnabled is `false`, no need to copy proguard files.
+
+                copySigningConfigIfNotSpecified(base, ext, extension.debugSigningConfig)
+            },
+        )
+
+        // Copies the source sets for the newly created build types
+        copyBuildTypeSources(
+            extensionSourceSets = extension.sourceSets,
+            fromToMapping = baselineProfileExtendedToOriginalTypeMap
         )
 
         // Creates benchmark build types extending the currently existing ones.
         // They're named `<BUILD_TYPE_BENCHMARK_PREFIX><originalBuildTypeName>`.
+        // Note that if the build type already does not exist, the `newConfigureBlock` is applied,
+        // while if it exist the `overrideConfigureBlock` is applied.
         createExtendedBuildTypes(
             project = project,
             extensionBuildTypes = extension.buildTypes,
             newBuildTypePrefix = BUILD_TYPE_BENCHMARK_PREFIX,
+            extendedBuildTypeToOriginalBuildTypeMapping = benchmarkExtendedToOriginalTypeMap,
             filterBlock = {
                 // Create benchmark type for non debuggable types, and without considering
-                // baseline profiles build types.
-                !it.isDebuggable && it.name !in extendedBuildTypesMapping
+                // baseline profiles build types. Note that it's possible to override
+                // benchmarkRelease and nonMinifiedRelease, so we also want to make sure we don't
+                // extended these again.
+                !it.isDebuggable &&
+                    it.name !in baselineProfileExtendedToOriginalTypeMap &&
+                    !it.name.startsWith(BUILD_TYPE_BASELINE_PROFILE_PREFIX) &&
+                    !it.name.startsWith(BUILD_TYPE_BENCHMARK_PREFIX)
             },
-            configureBlock = {
-                isJniDebuggable = false
-                isDebuggable = false
-                isMinifyEnabled = true
-                isShrinkResources = true
-                isProfileable = true
-                signingConfig = extension.debugSigningConfig
-                enableAndroidTestCoverage = false
-                enableUnitTestCoverage = false
+            newConfigureBlock = { base, ext ->
+
+                // Properties applied when the build type does not exist.
+                ext.isJniDebuggable = false
+                ext.isDebuggable = false
+                ext.isMinifyEnabled = base.isMinifyEnabled
+                ext.isShrinkResources = base.isShrinkResources
+                ext.isProfileable = true
+                ext.enableAndroidTestCoverage = false
+                ext.enableUnitTestCoverage = false
+
+                copySigningConfigIfNotSpecified(base, ext, extension.debugSigningConfig)
+            },
+            overrideConfigureBlock = { base, ext ->
+
+                // Properties applied when the build type exists.
+                ext.isJniDebuggable = false
+                ext.isDebuggable = false
+                ext.isProfileable = true
+                ext.enableAndroidTestCoverage = false
+                ext.enableUnitTestCoverage = false
+
+                copySigningConfigIfNotSpecified(base, ext, extension.debugSigningConfig)
             }
         )
-    }
 
-    private val ApplicationExtension.debugSigningConfig
-        get() = buildTypes.getByName("debug").signingConfig
+        // Copies the source sets for the newly created build types
+        copyBuildTypeSources(
+            extensionSourceSets = extension.sourceSets,
+            fromToMapping = benchmarkExtendedToOriginalTypeMap
+        )
+    }
 }

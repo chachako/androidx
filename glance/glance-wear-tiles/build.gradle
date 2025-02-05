@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
-import androidx.build.LibraryType
-import androidx.build.Publish
-import androidx.build.AndroidXComposePlugin
+/**
+ * This file was created using the `create_project.py` script located in the
+ * `<AndroidX root>/development/project-creator` directory.
+ *
+ * Please use that script when creating a new project, rather than copying an existing project and
+ * modifying its settings.
+ */
+import androidx.build.SoftwareType
 
 plugins {
     id("AndroidXPlugin")
     id("com.android.library")
+    id("org.jetbrains.kotlin.android")
     id("AndroidXComposePlugin")
 }
-
-// Disable multi-platform; this will only be used on Android.
-AndroidXComposePlugin.applyAndConfigureKotlinPlugin(project, /* isMultiplatformEnabled= */false)
 
 dependencies {
 
@@ -69,31 +72,27 @@ dependencies {
 
 android {
     defaultConfig {
-        minSdkVersion 26
+        minSdk = 26
+        compileSdk = 35
     }
     // Use Robolectric 4.+
     testOptions.unitTests.includeAndroidResources = true
 
-    lintOptions {
+    lint {
         // TODO(b/191286558): Remove when lint is fixed.
-        disable "UnsafeOptInUsageError", "UnsafeOptInUsageWarning"
-        // protobuf generates unannotated methods
-        disable "UnknownNullness"
+        disable.add("UnsafeOptInUsageError")
     }
-
-    sourceSets {
-        androidTest.assets.srcDirs += project.rootDir.absolutePath + "/../../golden/glance/glance-wear-tiles"
-    }
-    namespace "androidx.glance.wear.tiles"
-
+    namespace = "androidx.glance.wear.tiles"
 }
 
 androidx {
     name = "Glance for Wear Tiles"
-    type = LibraryType.PUBLISHED_LIBRARY
+    type = SoftwareType.PUBLISHED_LIBRARY_ONLY_USED_BY_KOTLIN_CONSUMERS
     mavenVersion = LibraryVersions.GLANCE_WEAR_TILES
     inceptionYear = "2021"
     description = "Glance allows developers to build layouts for Wear Tiles using a Jetpack " +
             "Compose-style API."
-    targetsJavaConsumers = false
+    legacyDisableKotlinStrictApiMode = true
+    metalavaK2UastEnabled = false
+    addGoldenImageAssets()
 }

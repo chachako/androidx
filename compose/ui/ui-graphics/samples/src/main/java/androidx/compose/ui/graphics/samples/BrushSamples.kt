@@ -53,9 +53,8 @@ fun GradientBrushSample() {
 
         Spacer(modifier = Modifier.size(20.dp))
 
-        // Create a radial gradient centered about the drawing area that is green on
-        // the outer
-        // edge of the circle and magenta towards the center of the circle
+        // Create a sweep gradient centered about the drawing area that is cyan at
+        // the start angle and magenta towards the end angle.
         val sweep = Brush.sweepGradient(listOf(Color.Cyan, Color.Magenta))
         Box(modifier = Modifier.size(120.dp).background(sweep))
     }
@@ -114,11 +113,7 @@ fun VerticalGradientColorStopSample() {
 
 @Sampled
 fun VerticalGradientSample() {
-    Brush.verticalGradient(
-        listOf(Color.Red, Color.Green, Color.Blue),
-        startY = 0.0f,
-        endY = 100.0f
-    )
+    Brush.verticalGradient(listOf(Color.Red, Color.Green, Color.Blue), startY = 0.0f, endY = 100.0f)
 }
 
 @Sampled
@@ -159,8 +154,5 @@ fun SweepGradientColorStopSample() {
 
 @Sampled
 fun SweepGradientSample() {
-    Brush.sweepGradient(
-        listOf(Color.Red, Color.Green, Color.Blue),
-        center = Offset(10.0f, 20.0f)
-    )
+    Brush.sweepGradient(listOf(Color.Red, Color.Green, Color.Blue), center = Offset(10.0f, 20.0f))
 }

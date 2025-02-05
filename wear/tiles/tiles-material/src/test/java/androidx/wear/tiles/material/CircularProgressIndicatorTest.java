@@ -16,21 +16,16 @@
 
 package androidx.wear.tiles.material;
 
-import static androidx.wear.tiles.material.ProgressIndicatorDefaults.DEFAULT_COLORS;
-import static androidx.wear.tiles.material.ProgressIndicatorDefaults.DEFAULT_END_ANGLE;
-import static androidx.wear.tiles.material.ProgressIndicatorDefaults.DEFAULT_START_ANGLE;
-import static androidx.wear.tiles.material.ProgressIndicatorDefaults.DEFAULT_STROKE_WIDTH;
-
 import static com.google.common.truth.Truth.assertThat;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import android.graphics.Color;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.internal.DoNotInstrument;
@@ -47,10 +42,10 @@ public class CircularProgressIndicatorTest {
         assertProgressIndicator(
                 circularProgressIndicator,
                 0,
-                DEFAULT_START_ANGLE,
-                DEFAULT_END_ANGLE,
-                DEFAULT_COLORS,
-                DEFAULT_STROKE_WIDTH.getValue(),
+                ProgressIndicatorDefaults.DEFAULT_START_ANGLE,
+                ProgressIndicatorDefaults.DEFAULT_END_ANGLE,
+                ProgressIndicatorDefaults.DEFAULT_COLORS,
+                ProgressIndicatorDefaults.DEFAULT_STROKE_WIDTH.getValue(),
                 null);
     }
 

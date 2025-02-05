@@ -61,7 +61,8 @@ abstract class HeadlessWatchFaceClientTestBase {
             context,
             Intent(context, WatchFaceControlTestService::class.java).apply {
                 action = WatchFaceControlService.ACTION_WATCHFACE_CONTROL_SERVICE
-            }
+            },
+            resourceOnlyWatchFacePackageName = null
         )
     }
 
@@ -238,7 +239,7 @@ class HeadlessWatchFaceClientTest : HeadlessWatchFaceClientTestBase() {
 class HeadlessWatchFaceClientScreenshotTest : HeadlessWatchFaceClientTestBase() {
     @get:Rule
     val screenshotRule: AndroidXScreenshotTestRule =
-        AndroidXScreenshotTestRule("wear/wear-watchface-client")
+        AndroidXScreenshotTestRule(SCREENSHOT_GOLDEN_PATH)
 
     private val complications = createTestComplications(context)
 

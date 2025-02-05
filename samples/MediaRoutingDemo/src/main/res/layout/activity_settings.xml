@@ -23,6 +23,27 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/open_system_routes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_activity_show_system_routes" />
+
+        <Button
+            android:id="@+id/go_to_route_listing_preference_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Route listing preference"/>
+
+        <fragment
+            android:id="@+id/preference_settings"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentLeft="true"
+            android:layout_centerVertical="true"
+            class="com.example.androidx.mediarouting.activities.SettingsPreferenceFragment"/>
+
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="50dp"
@@ -70,6 +91,31 @@
                 android:layout_centerVertical="true"
                 android:gravity="center"
                 android:text="Enable dynamic routing (For next routes only)" />
+
+        </RelativeLayout>
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_margin="12dp"
+            android:padding="4dp">
+
+            <Switch
+                android:id="@+id/enable_dynamic_provider_switch"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_alignParentEnd="true"
+                android:layout_alignParentRight="true"
+                android:layout_centerVertical="true" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentLeft="true"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:gravity="center"
+                android:text="Enable dynamic route provider" />
 
         </RelativeLayout>
 

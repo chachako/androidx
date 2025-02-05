@@ -22,9 +22,9 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import android.app.UiAutomation;
 import android.graphics.Point;
 import android.view.KeyEvent;
+import android.view.Surface;
 import android.widget.TextView;
 
 import androidx.test.filters.LargeTest;
@@ -36,7 +36,6 @@ import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.UiObject2;
 import androidx.test.uiautomator.Until;
 
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -59,6 +58,7 @@ import javax.xml.xpath.XPathFactory;
 public class UiDeviceTest extends BaseTest {
 
     private static final long TIMEOUT_MS = 5_000;
+    private static final long LONG_TIMEOUT_MS = 30_000;
     private static final String PACKAGE_NAME = "androidx.test.uiautomator.testapp";
     // Defined in 'AndroidManifest.xml'.
     private static final String APP_NAME = "UiAutomator Test App";
@@ -140,7 +140,7 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressMenu();
-        assertEquals("keycode menu pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode menu pressed; "), TIMEOUT_MS));
     }
 
     @Test
@@ -149,7 +149,7 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressBack();
-        assertEquals("keycode back pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode back pressed; "), TIMEOUT_MS));
     }
 
     @Test
@@ -158,7 +158,7 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressSearch();
-        assertEquals("keycode search pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode search pressed; "), TIMEOUT_MS));
     }
 
     @Test
@@ -167,7 +167,7 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressDPadCenter();
-        assertEquals("keycode dpad center pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode dpad center pressed; "), TIMEOUT_MS));
     }
 
     @Test
@@ -176,7 +176,7 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressDPadDown();
-        assertEquals("keycode dpad down pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode dpad down pressed; "), TIMEOUT_MS));
     }
 
     @Test
@@ -185,7 +185,7 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressDPadUp();
-        assertEquals("keycode dpad up pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode dpad up pressed; "), TIMEOUT_MS));
     }
 
     @Test
@@ -194,7 +194,7 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressDPadLeft();
-        assertEquals("keycode dpad left pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode dpad left pressed; "), TIMEOUT_MS));
     }
 
     @Test
@@ -203,7 +203,7 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressDPadRight();
-        assertEquals("keycode dpad right pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode dpad right pressed; "), TIMEOUT_MS));
     }
 
     @Test
@@ -212,7 +212,7 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressDelete();
-        assertEquals("keycode delete pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode delete pressed; "), TIMEOUT_MS));
     }
 
     @Test
@@ -221,7 +221,7 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressEnter();
-        assertEquals("keycode enter pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode enter pressed; "), TIMEOUT_MS));
     }
 
     @Test
@@ -230,7 +230,7 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressKeyCode(KeyEvent.KEYCODE_0);
-        assertEquals("keycode 0 pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode 0 pressed; "), TIMEOUT_MS));
     }
 
     @Test
@@ -240,18 +240,43 @@ public class UiDeviceTest extends BaseTest {
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressKeyCode(KeyEvent.KEYCODE_Z,
                 KeyEvent.META_SHIFT_LEFT_ON | KeyEvent.META_SHIFT_ON);
-        assertEquals("keycode Z pressed with meta shift left on", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode Z pressed; with meta shift left on; "),
+                TIMEOUT_MS));
     }
 
-    @Ignore // b/266617096
+    @Test
+    public void testPressKeyCodes_withMetaKeyCodes() {
+        launchTestActivity(KeycodeTestActivity.class);
+
+        UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
+        mDevice.pressKeyCodes(new int[]{KeyEvent.KEYCODE_Z,
+                KeyEvent.KEYCODE_SHIFT_LEFT});
+        assertTrue(textView.wait(Until.textEquals(
+                "keycode Z pressed; keycode shift left pressed; with meta shift left on; "),
+                TIMEOUT_MS));
+    }
+
+    @Test
+    public void testPressKeyCodes_withMetaKeyCodesReverseOrder() {
+        launchTestActivity(KeycodeTestActivity.class);
+
+        UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
+        mDevice.pressKeyCodes(new int[]{KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_Z});
+        assertTrue(textView.wait(Until.textEquals(
+                "keycode shift left pressed; with meta shift left on; keycode Z pressed;"
+                        + " with meta shift left on; "),
+                TIMEOUT_MS));
+    }
+
     @Test
     public void testPressRecentApps() throws Exception {
         launchTestActivity(MainActivity.class);
 
-        // Test app appears in the "Recent Apps" screen after pressing button.
-        assertFalse(mDevice.wait(Until.hasObject(By.desc(APP_NAME)), TIMEOUT_MS));
+        // Test app appears in the "Recent Apps" screen after pressing button (may need to wait
+        // for a tooltip that shows up the first time the screen is opened).
+        assertFalse(mDevice.hasObject(By.desc(APP_NAME)));
         mDevice.pressRecentApps();
-        assertTrue(mDevice.wait(Until.hasObject(By.desc(APP_NAME)), TIMEOUT_MS));
+        assertTrue(mDevice.wait(Until.hasObject(By.desc(APP_NAME)), LONG_TIMEOUT_MS));
     }
 
     @Test
@@ -260,7 +285,8 @@ public class UiDeviceTest extends BaseTest {
 
         UiObject2 textView = mDevice.findObject(By.res(TEST_APP, "text_view"));
         mDevice.pressKeyCodes(new int[]{KeyEvent.KEYCODE_A, KeyEvent.KEYCODE_B});
-        assertEquals("keycode A and keycode B are pressed", textView.getText());
+        assertTrue(textView.wait(Until.textEquals("keycode A pressed; keycode B pressed; "),
+                TIMEOUT_MS));
     }
 
     @Test
@@ -276,7 +302,6 @@ public class UiDeviceTest extends BaseTest {
     }
 
     @Test
-    @SdkSuppress(minSdkVersion = 21) // Quick settings menu might not be present prior to API 21.
     public void testOpenQuickSettings() {
         mDevice.openQuickSettings();
 
@@ -354,63 +379,40 @@ public class UiDeviceTest extends BaseTest {
     }
 
     @Test
-    @Ignore("b/280669851")
-    public void testSetOrientationLeft() throws Exception {
-        launchTestActivity(KeycodeTestActivity.class);
-        try {
-            assertTrue(mDevice.isNaturalOrientation());
-            assertEquals(UiAutomation.ROTATION_FREEZE_0, mDevice.getDisplayRotation());
+    public void testSetOrientation_leftRight() throws Exception {
+        launchTestActivity(MainActivity.class);
 
+        try {
             mDevice.setOrientationLeft();
-            assertFalse(mDevice.isNaturalOrientation());
-            assertEquals(UiAutomation.ROTATION_FREEZE_90, mDevice.getDisplayRotation());
-
-            mDevice.setOrientationNatural();
-            assertTrue(mDevice.isNaturalOrientation());
-        } finally {
-            mDevice.unfreezeRotation();
-        }
-    }
-
-    @Test
-    @Ignore("b/280669851")
-    public void testSetOrientationRight() throws Exception {
-        launchTestActivity(KeycodeTestActivity.class);
-        try {
-            assertTrue(mDevice.isNaturalOrientation());
-            assertEquals(UiAutomation.ROTATION_FREEZE_0, mDevice.getDisplayRotation());
+            assertTrue("Failed to set left orientation",
+                    mDevice.wait(d -> d.getDisplayRotation() == Surface.ROTATION_90, TIMEOUT_MS));
 
             mDevice.setOrientationRight();
-            assertFalse(mDevice.isNaturalOrientation());
-            assertEquals(UiAutomation.ROTATION_FREEZE_270, mDevice.getDisplayRotation());
-
+            assertTrue("Failed to set right orientation",
+                    mDevice.wait(d -> d.getDisplayRotation() == Surface.ROTATION_270, TIMEOUT_MS));
+        } finally {
             mDevice.setOrientationNatural();
-            assertTrue(mDevice.isNaturalOrientation());
-        } finally {
-            mDevice.unfreezeRotation();
+            assertTrue("Failed to set natural orientation",
+                    mDevice.wait(d -> d.getDisplayRotation() == Surface.ROTATION_0, TIMEOUT_MS));
         }
     }
 
     @Test
-    public void testSetOrientationPortrait() throws Exception {
-        launchTestActivity(KeycodeTestActivity.class);
-        try {
-            mDevice.setOrientationPortrait();
-            assertTrue(mDevice.getDisplayHeight() > mDevice.getDisplayWidth());
-        } finally {
-            mDevice.unfreezeRotation();
-        }
-    }
+    public void testSetOrientation_landscapePortrait() throws Exception {
+        launchTestActivity(MainActivity.class);
 
-    @Test
-    @Ignore("b/280669851")
-    public void testSetOrientationLandscape() throws Exception {
-        launchTestActivity(KeycodeTestActivity.class);
         try {
             mDevice.setOrientationLandscape();
-            assertTrue(mDevice.getDisplayWidth() > mDevice.getDisplayHeight());
+            assertTrue("Failed to set landscape orientation",
+                    mDevice.wait(d -> d.getDisplayHeight() <= d.getDisplayWidth(), TIMEOUT_MS));
+
+            mDevice.setOrientationPortrait();
+            assertTrue("Failed to set portrait orientation",
+                    mDevice.wait(d -> d.getDisplayHeight() >= d.getDisplayWidth(), TIMEOUT_MS));
         } finally {
-            mDevice.unfreezeRotation();
+            mDevice.setOrientationNatural();
+            assertTrue("Failed to set natural orientation",
+                    mDevice.wait(d -> d.getDisplayRotation() == Surface.ROTATION_0, TIMEOUT_MS));
         }
     }
 
@@ -428,7 +430,7 @@ public class UiDeviceTest extends BaseTest {
             mDevice.wakeUp();
             mDevice.pressMenu();
             assertTrue("Failed to wake up device and remove lockscreen",
-                    mDevice.hasObject(By.pkg(TEST_APP)));
+                    mDevice.wait(Until.hasObject(By.pkg(TEST_APP)), TIMEOUT_MS));
         }
     }
 

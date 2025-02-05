@@ -14,7 +14,14 @@
  * limitations under the License.
  */
 
-import androidx.build.LibraryType
+/**
+ * This file was created using the `create_project.py` script located in the
+ * `<AndroidX root>/development/project-creator` directory.
+ *
+ * Please use that script when creating a new project, rather than copying an existing project and
+ * modifying its settings.
+ */
+import androidx.build.SoftwareType
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
@@ -28,7 +35,8 @@ dependencies {
 
     implementation(libs.kotlinStdlib)
     implementation("androidx.core:core:1.5.0")
-
+    implementation("androidx.work:work-runtime:2.8.1")
+    implementation("androidx.work:work-runtime-ktx:2.8.1")
     compileOnly(project(":annotation:annotation-sampled"))
 
     implementation(project(":glance:glance"))
@@ -37,11 +45,12 @@ dependencies {
 
 androidx {
     name = "Glance AppWidget Classes Samples"
-    type = LibraryType.SAMPLES
+    type = SoftwareType.SAMPLES
     inceptionYear = "2023"
     description = "Contains the sample code for the Glance AppWidget Classes Samples"
 }
 
 android {
-    namespace "androidx.glance.appwidget.samples"
+    namespace = "androidx.glance.appwidget.samples"
+    compileSdk = 35
 }

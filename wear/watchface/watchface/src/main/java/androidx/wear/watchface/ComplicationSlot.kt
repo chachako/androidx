@@ -22,14 +22,15 @@ import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.os.Build
 import android.os.Bundle
-import android.support.wearable.complications.ComplicationData as WireComplicationData
 import androidx.annotation.ColorInt
 import androidx.annotation.IntDef
 import androidx.annotation.Px
 import androidx.annotation.RestrictTo
 import androidx.annotation.UiThread
+import androidx.annotation.VisibleForTesting
 import androidx.annotation.WorkerThread
 import androidx.wear.watchface.RenderParameters.HighlightedElement
+import androidx.wear.watchface.complications.ComplicationDataSourceInfo
 import androidx.wear.watchface.complications.ComplicationSlotBounds
 import androidx.wear.watchface.complications.DefaultComplicationDataSourcePolicy
 import androidx.wear.watchface.complications.data.ComplicationData
@@ -48,6 +49,7 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.ArrayList
 import java.util.Objects
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -106,7 +108,7 @@ public interface CanvasComplication {
      *
      * @param canvas The [Canvas] to render into
      * @param bounds A [Rect] describing the bounds of the complication
-     * @param boundsType The [ComplicationSlotBoundsType] of the complication
+     * @param boundsType The [ComplicationSlotBoundsTypeIntDef] of the complication
      * @param zonedDateTime The [ZonedDateTime] to render the highlight with
      * @param color The color to render the highlight with
      */
@@ -114,7 +116,7 @@ public interface CanvasComplication {
     public fun drawHighlight(
         canvas: Canvas,
         bounds: Rect,
-        @ComplicationSlotBoundsType boundsType: Int,
+        @ComplicationSlotBoundsTypeIntDef boundsType: Int,
         zonedDateTime: ZonedDateTime,
         @ColorInt color: Int
     )
@@ -126,15 +128,16 @@ public interface CanvasComplication {
      *
      * @param canvas The [Canvas] to render into
      * @param bounds A [Rect] describing the bounds of the complication
-     * @param boundsType The [ComplicationSlotBoundsType] of the complication
+     * @param boundsType The [ComplicationSlotBoundsTypeIntDef] of the complication
      * @param zonedDateTime The [ZonedDateTime] to render the highlight with
      * @param color The color to render the highlight with
+     * @param boundingArc Optional [BoundingArc] defining the geometry of an edge complication
      */
     @ComplicationExperimental
     public fun drawHighlight(
         canvas: Canvas,
         bounds: Rect,
-        @ComplicationSlotBoundsType boundsType: Int,
+        @ComplicationSlotBoundsTypeIntDef boundsType: Int,
         zonedDateTime: ZonedDateTime,
         @ColorInt color: Int,
         boundingArc: BoundingArc?
@@ -235,20 +238,21 @@ public class BackgroundComplicationTapFilter : ComplicationTapFilter {
         ]
 )
 @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
-public annotation class ComplicationSlotBoundsType {
-    public companion object {
-        /** The default, most complication slots are either circular or rounded rectangles. */
-        public const val ROUND_RECT: Int = 0
+public annotation class ComplicationSlotBoundsTypeIntDef
 
-        /**
-         * For a full screen image complication slot drawn behind the watch face. Note you can only
-         * have a single background complication slot.
-         */
-        public const val BACKGROUND: Int = 1
+/** The various types of [ComplicationSlot] bounds. */
+public object ComplicationSlotBoundsType {
+    /** The default, most complication slots are either circular or rounded rectangles. */
+    public const val ROUND_RECT: Int = 0
 
-        /** For edge of screen complication slots. */
-        public const val EDGE: Int = 2
-    }
+    /**
+     * For a full screen image complication slot drawn behind the watch face. Note you can only have
+     * a single background complication slot.
+     */
+    public const val BACKGROUND: Int = 1
+
+    /** For edge of screen complication slots. */
+    public const val EDGE: Int = 2
 }
 
 /**
@@ -341,20 +345,8 @@ public class BoundingArc(val startAngle: Float, val totalAngle: Float, @Px val t
  * expanded by [ComplicationSlotBounds.perComplicationTypeMargins]. Expanded bounds can overlap so
  * the [ComplicationSlot] with the lowest id that intersects the coordinates, if any, is selected.
  *
- * @param accessibilityTraversalIndex Used to sort Complications when generating accessibility
- *   content description labels.
- * @param bounds The complication slot's [ComplicationSlotBounds].
- * @param supportedTypes The list of [ComplicationType]s accepted by this complication slot. Used
- *   during complication data source selection, this list should be non-empty.
- * @param defaultPolicy The [DefaultComplicationDataSourcePolicy] which controls the initial
- *   complication data source when the watch face is first installed.
- * @param defaultDataSourceType The default [ComplicationType] for the default complication data
- *   source.
- * @param configExtras Extras to be merged into the Intent sent when invoking the complication data
- *   source chooser activity. This features is intended for OEM watch faces where they have elements
- *   that behave like a complication but are in fact entirely watch face specific.
  * @property id The Watch Face's ID for the complication slot.
- * @property boundsType The [ComplicationSlotBoundsType] of the complication slot.
+ * @property boundsType The [ComplicationSlotBoundsTypeIntDef] of the complication slot.
  * @property canvasComplicationFactory The [CanvasComplicationFactory] used to generate a
  *   [CanvasComplication] for rendering the complication. The factory allows us to decouple
  *   ComplicationSlot from potentially expensive asset loading.
@@ -369,11 +361,30 @@ public class BoundingArc(val startAngle: Float, val totalAngle: Float, @Px val t
  *   complication slot.
  */
 public class ComplicationSlot
+/**
+ * Constructs a [ComplicationSlot].
+ *
+ * @param accessibilityTraversalIndex Used to sort Complications when generating accessibility
+ *   content description labels.
+ * @param bounds The complication slot's [ComplicationSlotBounds].
+ * @param supportedTypes The list of [ComplicationType]s accepted by this complication slot, must be
+ *   non-empty. During complication data source selection, each item in this list is compared in
+ *   turn with entries from a data source's data source's supported types. The first matching entry
+ *   from `supportedTypes` is chosen. If there are no matches then that data source is not eligible
+ *   to be selected in this slot.
+ * @param defaultPolicy The [DefaultComplicationDataSourcePolicy] which controls the initial
+ *   complication data source when the watch face is first installed.
+ * @param defaultDataSourceType The default [ComplicationType] for the default complication data
+ *   source.
+ * @param configExtras Extras to be merged into the Intent sent when invoking the complication data
+ *   source chooser activity. This features is intended for OEM watch faces where they have elements
+ *   that behave like a complication but are in fact entirely watch face specific.
+ */
 @ComplicationExperimental
 internal constructor(
     public val id: Int,
     accessibilityTraversalIndex: Int,
-    @ComplicationSlotBoundsType public val boundsType: Int,
+    @ComplicationSlotBoundsTypeIntDef public val boundsType: Int,
     bounds: ComplicationSlotBounds,
     public val canvasComplicationFactory: CanvasComplicationFactory,
     public val supportedTypes: List<ComplicationType>,
@@ -387,8 +398,7 @@ internal constructor(
     screenReaderNameResourceId: Int?,
     // TODO(b/230364881): This should really be public but some metalava bug is preventing
     // @ComplicationExperimental from working on the getter so it's currently hidden.
-    /** @hide */
-    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val boundingArc: BoundingArc?
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP) public val boundingArc: BoundingArc?
 ) {
     /**
      * The [ComplicationSlotsManager] this is attached to. Only set after the
@@ -426,7 +436,8 @@ internal constructor(
 
     private var lastComplicationUpdate = Instant.EPOCH
 
-    private class ComplicationDataHistoryEntry(
+    @VisibleForTesting
+    internal class ComplicationDataHistoryEntry(
         val complicationData: ComplicationData,
         val time: Instant
     )
@@ -435,7 +446,8 @@ internal constructor(
      * There doesn't seem to be a convenient ring buffer in the standard library so implement our
      * own one.
      */
-    private class RingBuffer(val size: Int) : Iterable<ComplicationDataHistoryEntry> {
+    @VisibleForTesting
+    internal class RingBuffer(val size: Int) : Iterable<ComplicationDataHistoryEntry> {
         private val entries = arrayOfNulls<ComplicationDataHistoryEntry>(size)
         private var readIndex = 0
         private var writeIndex = 0
@@ -463,9 +475,11 @@ internal constructor(
 
     /**
      * In userdebug builds maintain a history of the last [MAX_COMPLICATION_HISTORY_ENTRIES]-1
-     * complications, which is logged in dumpsys to help debug complication issues.
+     * complications sent by the system, which is logged in dumpsys to help debug complication
+     * issues.
      */
-    private val complicationHistory =
+    @VisibleForTesting
+    internal val complicationHistory =
         if (Build.TYPE.equals("userdebug")) {
             RingBuffer(MAX_COMPLICATION_HISTORY_ENTRIES)
         } else {
@@ -620,8 +634,12 @@ internal constructor(
          * @param defaultDataSourcePolicy The [DefaultComplicationDataSourcePolicy] used to select
          *   the initial complication data source when the watch is first installed.
          * @param bounds The complication's [ComplicationSlotBounds]. Its likely the bounding rect
-         *   will be much larger than the complication and shouldn't directly be used for hit
+         *   will have a much larger area than [boundingArc] and shouldn't directly be used for hit
          *   testing.
+         * @param boundingArc The [BoundingArc] defining the geometry of the edge complication.
+         * @param complicationTapFilter The [ComplicationTapFilter] used to determine whether or not
+         *   a tap hit the complication. The default [ComplicationTapFilter] uses [boundingArc] to
+         *   perform hit testing.
          */
         @JvmStatic
         @JvmOverloads
@@ -662,8 +680,11 @@ internal constructor(
             )
     }
 
+    /** Builder for constructing [ComplicationSlot]s. */
+    @OptIn(ComplicationExperimental::class)
+    public class Builder
     /**
-     * Builder for constructing [ComplicationSlot]s.
+     * Constructs a [Builder].
      *
      * @param id The watch face's ID for this complication. Can be any integer but should be unique
      *   within the watch face.
@@ -674,19 +695,17 @@ internal constructor(
      *   during complication, this list should be non-empty.
      * @param defaultDataSourcePolicy The [DefaultComplicationDataSourcePolicy] used to select the
      *   initial complication data source when the watch is first installed.
-     * @param boundsType The [ComplicationSlotBoundsType] of the complication.
+     * @param boundsType The [ComplicationSlotBoundsTypeIntDef] of the complication.
      * @param bounds The complication's [ComplicationSlotBounds].
      * @param complicationTapFilter The [ComplicationTapFilter] used to perform hit testing for this
      *   complication.
      */
-    @OptIn(ComplicationExperimental::class)
-    public class Builder
     internal constructor(
         private val id: Int,
         private val canvasComplicationFactory: CanvasComplicationFactory,
         private val supportedTypes: List<ComplicationType>,
         private var defaultDataSourcePolicy: DefaultComplicationDataSourcePolicy,
-        @ComplicationSlotBoundsType private val boundsType: Int,
+        @ComplicationSlotBoundsTypeIntDef private val boundsType: Int,
         private val bounds: ComplicationSlotBounds,
         private val complicationTapFilter: ComplicationTapFilter,
         private val boundingArc: BoundingArc?
@@ -991,58 +1010,124 @@ internal constructor(
     internal var dataDirty = true
 
     /**
+     * The data set by [setComplicationData] (and then selected by
+     * [selectComplicationDataForInstant]). Exposed by [complicationData].
+     */
+    private var selectedData: ComplicationData = NoDataComplicationData()
+
+    private data class FrozenDataSourceForEdit(
+        val from: ComplicationDataSourceInfo?,
+        val to: ComplicationDataSourceInfo?,
+    )
+
+    /**
      * The [androidx.wear.watchface.complications.data.ComplicationData] associated with the
      * [ComplicationSlot]. This defaults to [NoDataComplicationData].
      */
-    public val complicationData: StateFlow<ComplicationData> =
-        MutableStateFlow(NoDataComplicationData())
+    public val complicationData: StateFlow<ComplicationData> = MutableStateFlow(selectedData)
 
     /**
      * The complication data sent by the system. This may contain a timeline out of which
      * [complicationData] is selected.
      */
-    private var timelineComplicationData: ComplicationData = NoDataComplicationData()
-    private var timelineEntries: List<WireComplicationData>? = null
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public var timelineComplicationData: ComplicationData = NoDataComplicationData()
+        private set
+
+    @get:RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public var timelineEntries: List<ApiTimelineEntry>? = null
+        private set
+
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP)
+    public class ApiTimelineEntry(
+        val timelineStartEpochSecond: Long?,
+        val timelineEndEpochSecond: Long?,
+        val complicationData: ComplicationData
+    )
 
     /**
      * Sets the current [ComplicationData] and if it's a timeline, the correct override for
-     * [instant] is chosen.
+     * [instant] is chosen. Any images associated with the complication are loaded asynchronously
+     * and the complication history is updated.
      */
     internal fun setComplicationData(
         complicationData: ComplicationData,
-        loadDrawablesAsynchronous: Boolean,
-        instant: Instant
+        instant: Instant,
+        forceLoad: Boolean = false,
     ) {
-        lastComplicationUpdate = instant
         complicationHistory?.push(ComplicationDataHistoryEntry(complicationData, instant))
-        timelineComplicationData = complicationData
-        timelineEntries = complicationData.asWireComplicationData().timelineEntries?.toList()
-        selectComplicationDataForInstant(instant, loadDrawablesAsynchronous, true)
+        setTimelineData(complicationData, instant)
+        selectComplicationDataForInstant(instant, forceLoad = forceLoad)
+    }
+
+    /**
+     * Sets the current [ComplicationData] and if it's a timeline, the correct override for
+     * [instant] is chosen. Any images are loaded synchronously. The complication history is not
+     * updated.
+     *
+     * Returns a restoration function.
+     */
+    internal fun setComplicationDataForScreenshot(
+        complicationData: ComplicationData,
+        instant: Instant
+    ): AutoCloseable {
+        val originalComplicationData = timelineComplicationData
+        val originalInstant = lastComplicationUpdate
+        val restore = AutoCloseable {
+            // Avoid overwriting a change made by someone else, can still race.
+            if (timelineComplicationData !== complicationData) return@AutoCloseable
+            setTimelineData(originalComplicationData, originalInstant)
+            selectComplicationDataForInstant(originalInstant, forceLoad = true)
+        }
+
+        try {
+            setTimelineData(complicationData, instant)
+            selectComplicationDataForInstant(instant, forceLoad = true)
+        } catch (e: Throwable) {
+            // Cleanup on failure.
+            restore.close()
+            throw e
+        }
+        return restore
+    }
+
+    private fun setTimelineData(data: ComplicationData, instant: Instant) {
+        lastComplicationUpdate = instant
+        timelineComplicationData = data
+        timelineEntries =
+            data.asWireComplicationData().timelineEntries?.mapTo(ArrayList<ApiTimelineEntry>()) {
+                ApiTimelineEntry(
+                    it.timelineStartEpochSecond,
+                    it.timelineEndEpochSecond,
+                    it.toApiComplicationData()
+                )
+            }
+    }
+
+    private fun loadData(data: ComplicationData, loadDrawablesAsynchronous: Boolean = false) {
+        renderer.loadData(data, loadDrawablesAsynchronous = loadDrawablesAsynchronous)
+        (complicationData as MutableStateFlow<ComplicationData>).value = data
     }
 
     /**
      * If the current [ComplicationData] is a timeline, the correct override for [instant] is
      * chosen.
      */
-    internal fun selectComplicationDataForInstant(
-        instant: Instant,
-        loadDrawablesAsynchronous: Boolean,
-        forceUpdate: Boolean
-    ) {
+    internal fun selectComplicationDataForInstant(instant: Instant, forceLoad: Boolean) {
         var previousShortest = Long.MAX_VALUE
         val time = instant.epochSecond
         var best = timelineComplicationData
 
         // Select the shortest valid timeline entry.
         timelineEntries?.let {
-            for (wireEntry in it) {
-                val start = wireEntry.timelineStartEpochSecond
-                val end = wireEntry.timelineEndEpochSecond
+            for (entry in it) {
+                val start = entry.timelineStartEpochSecond
+                val end = entry.timelineEndEpochSecond
                 if (start != null && end != null && time >= start && time < end) {
                     val duration = end - start
                     if (duration < previousShortest) {
                         previousShortest = duration
-                        best = wireEntry.toApiComplicationData()
+                        best = entry.complicationData
                     }
                 }
             }
@@ -1057,14 +1142,15 @@ internal constructor(
             best = screenLockedFallback // This is NoDataComplicationData.
         }
 
-        if (!forceUpdate && complicationData.value == best) return
-        renderer.loadData(best, loadDrawablesAsynchronous)
-        (complicationData as MutableStateFlow).value = best
+        // When b/323483515 is fixed, go back to using regular equality rather than reference
+        // equality.
+        if (!forceLoad && selectedData === best) return
 
-        // forceUpdate is used for screenshots, don't set the dirty flag for those.
-        if (!forceUpdate) {
-            dataDirty = true
-        }
+        loadData(best, loadDrawablesAsynchronous = !forceLoad)
+        selectedData = best
+
+        // For screenshots don't set the dirty flag.
+        if (!forceLoad) dataDirty = true
     }
 
     /**
@@ -1156,7 +1242,8 @@ internal constructor(
 
         if (isHeadless) {
             timelineComplicationData = EmptyComplicationData()
-            (complicationData as MutableStateFlow).value = EmptyComplicationData()
+            selectedData = EmptyComplicationData()
+            (complicationData as MutableStateFlow<ComplicationData>).value = EmptyComplicationData()
         }
     }
 

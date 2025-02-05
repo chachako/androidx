@@ -20,9 +20,10 @@ import android.app.KeyguardManager;
 import android.content.Context;
 import android.os.Build;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Utilities related to the {@link KeyguardManager} system service.
@@ -37,8 +38,7 @@ class KeyguardUtils {
      * @param context The application or activity context.
      * @return An instance of {@link KeyguardManager}.
      */
-    @Nullable
-    static KeyguardManager getKeyguardManager(@NonNull Context context) {
+    static @Nullable KeyguardManager getKeyguardManager(@NonNull Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             return Api23Impl.getKeyguardManager(context);
         }
@@ -60,10 +60,7 @@ class KeyguardUtils {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             return Api23Impl.isDeviceSecure(keyguardManager);
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-            return Api16Impl.isKeyguardSecure(keyguardManager);
-        }
-        return false;
+        return keyguardManager.isKeyguardSecure();
     }
 
     /**
@@ -80,8 +77,7 @@ class KeyguardUtils {
          * @param context The application or activity context.
          * @return An instance of {@link KeyguardManager}.
          */
-        @Nullable
-        static KeyguardManager getKeyguardManager(@NonNull Context context) {
+        static @Nullable KeyguardManager getKeyguardManager(@NonNull Context context) {
             return context.getSystemService(KeyguardManager.class);
         }
 
@@ -93,25 +89,6 @@ class KeyguardUtils {
          */
         static boolean isDeviceSecure(@NonNull KeyguardManager keyguardManager) {
             return keyguardManager.isDeviceSecure();
-        }
-    }
-
-    /**
-     * Nested class to avoid verification errors for methods introduced in Android 4.1 (API 16).
-     */
-    @RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
-    private static class Api16Impl {
-        // Prevent instantiation.
-        private Api16Impl() {}
-
-        /**
-         * Calls {@link KeyguardManager#isKeyguardSecure()} for the given keyguard manager.
-         *
-         * @param keyguardManager An instance of {@link KeyguardManager}.
-         * @return The result of {@link KeyguardManager#isKeyguardSecure()}.
-         */
-        static boolean isKeyguardSecure(@NonNull KeyguardManager keyguardManager) {
-            return keyguardManager.isKeyguardSecure();
         }
     }
 }

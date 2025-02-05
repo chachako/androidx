@@ -15,25 +15,29 @@
  */
 
 @file:OptIn(InternalComposeApi::class)
+
 package androidx.compose.runtime
 
 import androidx.compose.runtime.mock.EmptyApplier
-import androidx.compose.runtime.mock.compositionTest
 import androidx.compose.runtime.mock.Text
 import androidx.compose.runtime.mock.View
 import androidx.compose.runtime.mock.ViewApplier
+import androidx.compose.runtime.mock.compositionTest
 import androidx.compose.runtime.mock.expectChanges
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.runtime.snapshots.SnapshotStateObserver
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.runTest
+import java.lang.ref.WeakReference
 import kotlin.concurrent.thread
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
-import kotlinx.coroutines.delay
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runTest
 
 @Stable
 @OptIn(InternalComposeApi::class)
@@ -55,8 +59,7 @@ class JvmCompositionTests {
         for (i in 1..1000) {
             runTest(UnconfinedTestDispatcher()) {
                 localRecomposerTest {
-                    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-                    var value by mutableStateOf(0)
+                    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE") var value by mutableStateOf(0)
                     val snapshotObserver = SnapshotStateObserver {}
                     snapshotObserver.start()
                     @Suppress("UNUSED_VALUE")
@@ -104,8 +107,7 @@ class JvmCompositionTests {
         }
 
         thread.interrupt()
-        @Suppress("BlockingMethodInNonBlockingContext")
-        thread.join()
+        @Suppress("BlockingMethodInNonBlockingContext") thread.join()
         delay(10)
         threadException?.let { throw it }
     }
@@ -124,9 +126,7 @@ class JvmCompositionTests {
         val thread = thread {
             try {
                 while (!Thread.interrupted()) {
-                    Snapshot.withMutableSnapshot {
-                        count.value++
-                    }
+                    Snapshot.withMutableSnapshot { count.value++ }
                 }
             } catch (e: Exception) {
                 threadException = e
@@ -139,8 +139,7 @@ class JvmCompositionTests {
         }
 
         thread.interrupt()
-        @Suppress("BlockingMethodInNonBlockingContext")
-        thread.join()
+        @Suppress("BlockingMethodInNonBlockingContext") thread.join()
         delay(10)
         threadException?.let { throw it }
     }
@@ -167,12 +166,28 @@ class JvmCompositionTests {
         expectChanges()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test // Regression test for https://issuetracker.google.com/262356264
+    fun compositionDoesNotRetainSnapshotReference() = runTest {
+        localRecomposerTest { recomposer ->
+            var compositionSnapshot: WeakReference<Snapshot>? = null
+            val composition = Composition(UnitApplier(), recomposer)
+            composition.setContent { compositionSnapshot = WeakReference(Snapshot.current) }
+            assertNotNull(compositionSnapshot, "compositionSnapshot weak reference")
+            repeat(10) { Runtime.getRuntime().gc() }
+            assertNull(compositionSnapshot?.get(), "weak snapshot reference after forced gc")
+        }
+    }
+
     private var count = 0
-    @BeforeTest fun saveSnapshotCount() {
+
+    @BeforeTest
+    fun saveSnapshotCount() {
         count = Snapshot.openSnapshotCount()
     }
 
-    @AfterTest fun checkSnapshotCount() {
+    @AfterTest
+    fun checkSnapshotCount() {
         val afterCount = Snapshot.openSnapshotCount()
         assertEquals(count, afterCount, "A snapshot was left open after the test")
     }

@@ -18,17 +18,18 @@ package androidx.camera.camera2.internal;
 
 import android.hardware.camera2.CameraDevice;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
-import androidx.annotation.RequiresApi;
+import androidx.camera.camera2.internal.compat.quirk.DeviceQuirks;
+import androidx.camera.camera2.internal.compat.quirk.PreviewUnderExposureQuirk;
 import androidx.camera.core.ExperimentalZeroShutterLag;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.impl.UseCaseConfigFactory;
 
+import org.jspecify.annotations.NonNull;
+
 /**
  * A class that contains utility methods for template type.
  */
-@RequiresApi(21) // TODO(b/200306659): Remove and replace with annotation on package-info.java
 public class TemplateTypeUtil {
 
     private TemplateTypeUtil() {
@@ -40,7 +41,7 @@ public class TemplateTypeUtil {
      */
     @OptIn(markerClass = ExperimentalZeroShutterLag.class)
     public static int getSessionConfigTemplateType(
-            @NonNull UseCaseConfigFactory.CaptureType captureType,
+            UseCaseConfigFactory.@NonNull CaptureType captureType,
             @ImageCapture.CaptureMode int captureMode
     ) {
         switch (captureType) {
@@ -49,8 +50,11 @@ public class TemplateTypeUtil {
                         ? CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG :
                         CameraDevice.TEMPLATE_PREVIEW;
             case VIDEO_CAPTURE:
-            case STREAM_SHARING:
+                if (DeviceQuirks.get(PreviewUnderExposureQuirk.class) != null) {
+                    return CameraDevice.TEMPLATE_PREVIEW;
+                }
                 return CameraDevice.TEMPLATE_RECORD;
+            case STREAM_SHARING:
             case PREVIEW:
             case IMAGE_ANALYSIS:
             default:
@@ -63,7 +67,7 @@ public class TemplateTypeUtil {
      */
     @OptIn(markerClass = ExperimentalZeroShutterLag.class)
     public static int getCaptureConfigTemplateType(
-            @NonNull UseCaseConfigFactory.CaptureType captureType,
+            UseCaseConfigFactory.@NonNull CaptureType captureType,
             @ImageCapture.CaptureMode int captureMode
     ) {
         switch (captureType) {
@@ -72,8 +76,11 @@ public class TemplateTypeUtil {
                         ? CameraDevice.TEMPLATE_ZERO_SHUTTER_LAG :
                         CameraDevice.TEMPLATE_STILL_CAPTURE;
             case VIDEO_CAPTURE:
-            case STREAM_SHARING:
+                if (DeviceQuirks.get(PreviewUnderExposureQuirk.class) != null) {
+                    return CameraDevice.TEMPLATE_PREVIEW;
+                }
                 return CameraDevice.TEMPLATE_RECORD;
+            case STREAM_SHARING:
             case PREVIEW:
             case IMAGE_ANALYSIS:
             default:

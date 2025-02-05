@@ -24,7 +24,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.testTag
@@ -43,8 +42,8 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performKeyInput
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
@@ -54,15 +53,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @LargeTest
-@OptIn(
-    ExperimentalTestApi::class,
-    ExperimentalComposeUiApi::class,
-    ExperimentalTvMaterial3Api::class
-)
+@OptIn(ExperimentalTestApi::class, ExperimentalTvMaterial3Api::class)
 @RunWith(AndroidJUnit4::class)
 class ButtonTest {
-    @get:Rule
-    val rule = createComposeRule()
+    @get:Rule val rule = createComposeRule()
 
     @Test
     fun filledButton_defaultSemantics() {
@@ -74,8 +68,32 @@ class ButtonTest {
             }
         }
 
-        rule.onNodeWithTag(FilledButtonTag)
+        rule
+            .onNodeWithTag(FilledButtonTag)
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertHasClickAction()
+            .assertIsEnabled()
+    }
+
+    @Test
+    fun filledButton_longClickSemantics() {
+        rule.setContent {
+            Box {
+                Button(
+                    modifier = Modifier.testTag(FilledButtonTag),
+                    onClick = {},
+                    onLongClick = {}
+                ) {
+                    Text("FilledButton")
+                }
+            }
+        }
+
+        rule
+            .onNodeWithTag(FilledButtonTag)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertHasClickAction()
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick))
             .assertIsEnabled()
     }
 
@@ -93,7 +111,8 @@ class ButtonTest {
             }
         }
 
-        rule.onNodeWithTag(FilledButtonTag)
+        rule
+            .onNodeWithTag(FilledButtonTag)
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
             .assertIsNotEnabled()
     }
@@ -111,12 +130,34 @@ class ButtonTest {
                 }
             }
         }
-        rule.onNodeWithTag(FilledButtonTag)
-            .performSemanticsAction(SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(Key.DirectionCenter) }
-        rule.runOnIdle {
-            Truth.assertThat(counter).isEqualTo(1)
+        rule.onNodeWithTag(FilledButtonTag).requestFocus().performKeyInput {
+            pressKey(Key.DirectionCenter)
         }
+        rule.runOnIdle { Truth.assertThat(counter).isEqualTo(1) }
+    }
+
+    @Test
+    fun filledButton_findByTag_andLongClick() {
+        var counter = 0
+        val onLongClick: () -> Unit = { ++counter }
+        val text = "FilledButtonText"
+
+        rule.setContent {
+            Box {
+                Button(
+                    modifier = Modifier.testTag(FilledButtonTag),
+                    onClick = {},
+                    onLongClick = onLongClick
+                ) {
+                    Text(text)
+                }
+            }
+        }
+        rule
+            .onNodeWithTag(FilledButtonTag)
+            .requestFocus()
+            .performLongKeyPress(rule, Key.DirectionCenter)
+        rule.runOnIdle { Truth.assertThat(counter).isEqualTo(1) }
     }
 
     @Test
@@ -133,11 +174,12 @@ class ButtonTest {
                 }
             }
         }
-        rule.onNodeWithTag(FilledButtonTag)
+        rule
+            .onNodeWithTag(FilledButtonTag)
             // Confirm the button starts off enabled, with a click action
             .assertHasClickAction()
             .assertIsEnabled()
-            .performSemanticsAction(SemanticsActions.RequestFocus)
+            .requestFocus()
             .performKeyInput { pressKey(Key.DirectionCenter) }
             // Then confirm it's disabled with click action after clicking it
             .assertHasClickAction()
@@ -156,33 +198,27 @@ class ButtonTest {
 
         rule.setContent {
             Column {
-                Button(
-                    modifier = Modifier.testTag(watchButtonTag),
-                    onClick = watchButtonOnClick
-                ) {
+                Button(modifier = Modifier.testTag(watchButtonTag), onClick = watchButtonOnClick) {
                     Text("Watch")
                 }
-                Button(
-                    modifier = Modifier.testTag(playButtonTag),
-                    onClick = playButtonOnClick
-                ) {
+                Button(modifier = Modifier.testTag(playButtonTag), onClick = playButtonOnClick) {
                     Text("Play")
                 }
             }
         }
 
-        rule.onNodeWithTag(watchButtonTag)
-            .performSemanticsAction(SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(Key.DirectionCenter) }
+        rule.onNodeWithTag(watchButtonTag).requestFocus().performKeyInput {
+            pressKey(Key.DirectionCenter)
+        }
 
         rule.runOnIdle {
             Truth.assertThat(watchButtonCounter).isEqualTo(1)
             Truth.assertThat(playButtonCounter).isEqualTo(0)
         }
 
-        rule.onNodeWithTag(playButtonTag)
-            .performSemanticsAction(SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(Key.DirectionCenter) }
+        rule.onNodeWithTag(playButtonTag).requestFocus().performKeyInput {
+            pressKey(Key.DirectionCenter)
+        }
 
         rule.runOnIdle {
             Truth.assertThat(watchButtonCounter).isEqualTo(1)
@@ -193,15 +229,11 @@ class ButtonTest {
     @Test
     fun filledButton_buttonPositioning() {
         rule.setContent {
-            Button(
-                onClick = {},
-                modifier = Modifier.testTag(FilledButtonTag)
-            ) {
+            Button(onClick = {}, modifier = Modifier.testTag(FilledButtonTag)) {
                 Text(
                     "FilledButton",
-                    modifier = Modifier
-                        .testTag(FilledButtonTextTag)
-                        .semantics(mergeDescendants = true) {}
+                    modifier =
+                        Modifier.testTag(FilledButtonTextTag).semantics(mergeDescendants = true) {}
                 )
             }
         }
@@ -226,21 +258,19 @@ class ButtonTest {
             Button(
                 onClick = {},
                 contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-                modifier = Modifier
-                    .testTag(FilledButtonTag)
+                modifier = Modifier.testTag(FilledButtonTag)
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(FilledButtonIconSize)
-                        .testTag(FilledButtonIconTag)
-                        .semantics(mergeDescendants = true) {}
+                    modifier =
+                        Modifier.size(FilledButtonIconSize).testTag(FilledButtonIconTag).semantics(
+                            mergeDescendants = true
+                        ) {}
                 )
                 Spacer(Modifier.size(FilledButtonIconSpacing))
                 Text(
                     "Liked it",
-                    modifier = Modifier
-                        .testTag(FilledButtonTextTag)
-                        .semantics(mergeDescendants = true) {}
+                    modifier =
+                        Modifier.testTag(FilledButtonTextTag).semantics(mergeDescendants = true) {}
                 )
             }
         }
@@ -275,8 +305,32 @@ class ButtonTest {
             }
         }
 
-        rule.onNodeWithTag(OutlinedButtonTag)
+        rule
+            .onNodeWithTag(OutlinedButtonTag)
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertHasClickAction()
+            .assertIsEnabled()
+    }
+
+    @Test
+    fun outlinedButton_longClickSemantics() {
+        rule.setContent {
+            Box {
+                OutlinedButton(
+                    modifier = Modifier.testTag(OutlinedButtonTag),
+                    onClick = {},
+                    onLongClick = {}
+                ) {
+                    Text("OutlinedButton")
+                }
+            }
+        }
+
+        rule
+            .onNodeWithTag(OutlinedButtonTag)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertHasClickAction()
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.OnLongClick))
             .assertIsEnabled()
     }
 
@@ -294,7 +348,8 @@ class ButtonTest {
             }
         }
 
-        rule.onNodeWithTag(OutlinedButtonTag)
+        rule
+            .onNodeWithTag(OutlinedButtonTag)
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
             .assertIsNotEnabled()
     }
@@ -312,12 +367,34 @@ class ButtonTest {
                 }
             }
         }
-        rule.onNodeWithTag(OutlinedButtonTag)
-            .performSemanticsAction(SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(Key.DirectionCenter) }
-        rule.runOnIdle {
-            Truth.assertThat(counter).isEqualTo(1)
+        rule.onNodeWithTag(OutlinedButtonTag).requestFocus().performKeyInput {
+            pressKey(Key.DirectionCenter)
         }
+        rule.runOnIdle { Truth.assertThat(counter).isEqualTo(1) }
+    }
+
+    @Test
+    fun outlinedButton_findByTag_andLongClick() {
+        var counter = 0
+        val onLongClick: () -> Unit = { ++counter }
+        val text = "OutlinedButtonText"
+
+        rule.setContent {
+            Box {
+                OutlinedButton(
+                    modifier = Modifier.testTag(OutlinedButtonTag),
+                    onClick = {},
+                    onLongClick = onLongClick
+                ) {
+                    Text(text)
+                }
+            }
+        }
+        rule
+            .onNodeWithTag(OutlinedButtonTag)
+            .requestFocus()
+            .performLongKeyPress(rule, Key.DirectionCenter)
+        rule.runOnIdle { Truth.assertThat(counter).isEqualTo(1) }
     }
 
     @Test
@@ -334,11 +411,12 @@ class ButtonTest {
                 }
             }
         }
-        rule.onNodeWithTag(OutlinedButtonTag)
+        rule
+            .onNodeWithTag(OutlinedButtonTag)
             // Confirm the button starts off enabled, with a click action
             .assertHasClickAction()
             .assertIsEnabled()
-            .performSemanticsAction(SemanticsActions.RequestFocus)
+            .requestFocus()
             .performKeyInput { pressKey(Key.DirectionCenter) }
             // Then confirm it's disabled with click action after clicking it
             .assertHasClickAction()
@@ -372,18 +450,18 @@ class ButtonTest {
             }
         }
 
-        rule.onNodeWithTag(watchButtonTag)
-            .performSemanticsAction(SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(Key.DirectionCenter) }
+        rule.onNodeWithTag(watchButtonTag).requestFocus().performKeyInput {
+            pressKey(Key.DirectionCenter)
+        }
 
         rule.runOnIdle {
             Truth.assertThat(watchButtonCounter).isEqualTo(1)
             Truth.assertThat(playButtonCounter).isEqualTo(0)
         }
 
-        rule.onNodeWithTag(playButtonTag)
-            .performSemanticsAction(SemanticsActions.RequestFocus)
-            .performKeyInput { pressKey(Key.DirectionCenter) }
+        rule.onNodeWithTag(playButtonTag).requestFocus().performKeyInput {
+            pressKey(Key.DirectionCenter)
+        }
 
         rule.runOnIdle {
             Truth.assertThat(watchButtonCounter).isEqualTo(1)
@@ -394,15 +472,13 @@ class ButtonTest {
     @Test
     fun outlinedButton_buttonPositioning() {
         rule.setContent {
-            OutlinedButton(
-                onClick = {},
-                modifier = Modifier.testTag(OutlinedButtonTag)
-            ) {
+            OutlinedButton(onClick = {}, modifier = Modifier.testTag(OutlinedButtonTag)) {
                 Text(
                     "OutlinedButton",
-                    modifier = Modifier
-                        .testTag(OutlinedButtonTextTag)
-                        .semantics(mergeDescendants = true) {}
+                    modifier =
+                        Modifier.testTag(OutlinedButtonTextTag).semantics(
+                            mergeDescendants = true
+                        ) {}
                 )
             }
         }
@@ -427,21 +503,21 @@ class ButtonTest {
             OutlinedButton(
                 onClick = {},
                 contentPadding = OutlinedButtonDefaults.ButtonWithIconContentPadding,
-                modifier = Modifier
-                    .testTag(OutlinedButtonTag)
+                modifier = Modifier.testTag(OutlinedButtonTag)
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(OutlinedButtonIconSize)
-                        .testTag(OutlinedButtonIconTag)
-                        .semantics(mergeDescendants = true) {}
+                    modifier =
+                        Modifier.size(OutlinedButtonIconSize)
+                            .testTag(OutlinedButtonIconTag)
+                            .semantics(mergeDescendants = true) {}
                 )
                 Spacer(Modifier.size(OutlinedButtonIconSpacing))
                 Text(
                     "Liked it",
-                    modifier = Modifier
-                        .testTag(OutlinedButtonTextTag)
-                        .semantics(mergeDescendants = true) {}
+                    modifier =
+                        Modifier.testTag(OutlinedButtonTextTag).semantics(
+                            mergeDescendants = true
+                        ) {}
                 )
             }
         }

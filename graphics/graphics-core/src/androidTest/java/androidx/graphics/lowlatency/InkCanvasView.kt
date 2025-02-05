@@ -28,41 +28,44 @@ import androidx.annotation.RequiresApi
 class InkCanvasView(context: Context) : SurfaceView(context) {
 
     private var mCanvasFrontBufferedRenderer: CanvasFrontBufferedRenderer<FloatArray>? = null
-    private val mLinesDrawable = LinesDrawable()
+    private val mLinesDrawable = LinesDrawable().apply { strokeWidth = 15f }
     private val mSceneParams = ArrayList<FloatArray>()
-    private val mCallbacks = object : CanvasFrontBufferedRenderer.Callback<FloatArray> {
+    private val mCallbacks =
+        object : CanvasFrontBufferedRenderer.Callback<FloatArray> {
 
-        override fun onDrawFrontBufferedLayer(
-            canvas: Canvas,
-            bufferWidth: Int,
-            bufferHeight: Int,
-            param: FloatArray
-        ) {
-            with(mLinesDrawable) {
-                setBounds(0, 0, bufferWidth, bufferHeight)
-                setLines(param)
-                setColor(Color.CYAN)
-                draw(canvas)
-            }
-        }
-
-        override fun onDrawMultiBufferedLayer(
-            canvas: Canvas,
-            bufferWidth: Int,
-            bufferHeight: Int,
-            params: Collection<FloatArray>
-        ) {
-            mSceneParams.addAll(params)
-            with(mLinesDrawable) {
-                setBounds(0, 0, bufferWidth, bufferHeight)
-                setColor(Color.MAGENTA)
-                for (param in mSceneParams) {
+            override fun onDrawFrontBufferedLayer(
+                canvas: Canvas,
+                bufferWidth: Int,
+                bufferHeight: Int,
+                param: FloatArray
+            ) {
+                with(mLinesDrawable) {
+                    setBounds(0, 0, bufferWidth, bufferHeight)
                     setLines(param)
+                    setColor(Color.CYAN)
+                    alpha = 128
                     draw(canvas)
                 }
             }
+
+            override fun onDrawMultiBufferedLayer(
+                canvas: Canvas,
+                bufferWidth: Int,
+                bufferHeight: Int,
+                params: Collection<FloatArray>
+            ) {
+                mSceneParams.addAll(params)
+                with(mLinesDrawable) {
+                    setBounds(0, 0, bufferWidth, bufferHeight)
+                    setColor(Color.CYAN)
+                    alpha = 128
+                    for (param in mSceneParams) {
+                        setLines(param)
+                        draw(canvas)
+                    }
+                }
+            }
         }
-    }
 
     private var mPreviousX: Float = 0f
     private var mPreviousY: Float = 0f
@@ -70,6 +73,7 @@ class InkCanvasView(context: Context) : SurfaceView(context) {
     private var mCurrentY: Float = 0f
 
     init {
+        setZOrderOnTop(true)
         setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -83,12 +87,13 @@ class InkCanvasView(context: Context) : SurfaceView(context) {
                     mCurrentX = event.x
                     mCurrentY = event.y
 
-                    val line = FloatArray(4).apply {
-                        this[0] = mPreviousX
-                        this[1] = mPreviousY
-                        this[2] = mCurrentX
-                        this[3] = mCurrentY
-                    }
+                    val line =
+                        FloatArray(4).apply {
+                            this[0] = mPreviousX
+                            this[1] = mPreviousY
+                            this[2] = mCurrentX
+                            this[3] = mCurrentY
+                        }
                     mCanvasFrontBufferedRenderer?.renderFrontBufferedLayer(line)
                 }
                 MotionEvent.ACTION_CANCEL -> {
